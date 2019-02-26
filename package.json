@@ -1,0 +1,47 @@
+{
+  "name": "hypermount",
+  "version": "1.0.0",
+  "description": "A FUSE-mountable distributed filesystem, built on Hyperdrive",
+  "main": "index.js",
+  "bin": {
+    "hypermount": "./cli.js"
+  },
+  "scripts": {
+    "test": "tape test/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andrewosh/hypermount.git"
+  },
+  "keywords": [
+    "hyperdrive",
+    "fuse",
+    "daemon"
+  ],
+  "author": "Andrew Osheorff <andrewosh@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/andrewosh/hypermount/issues"
+  },
+  "homepage": "https://github.com/andrewosh/hypermount#readme",
+  "dependencies": {
+    "chalk": "^2.4.2",
+    "corestore": "^1.2.2",
+    "dat-encoding": "^5.0.1",
+    "express": "^4.16.4",
+    "forever": "^0.15.3",
+    "forever-monitor": "^1.7.1",
+    "fs-extra": "^7.0.1",
+    "hyperdrive": "git+https://github.com/andrewosh/hyperdrive.git#fuse-testing",
+    "hyperdrive-fuse": "git+https://github.com/andrewosh/hyperdrive-fuse",
+    "level": "^4.0.0",
+    "request": "^2.88.0",
+    "request-promise-native": "^1.0.7",
+    "sodium-universal": "^2.0.0",
+    "yargs": "^13.2.1"
+  },
+  "devDependencies": {
+    "standard": "^12.0.1",
+    "tape": "^4.10.1"
+  }
+}
