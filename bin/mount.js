@@ -2,7 +2,7 @@ const p = require('path')
 const request = require('request-promise-native')
 const chalk = require('chalk')
 
-const { loadMetadata, createMetadata } = require('../lib/metadata')
+const { loadMetadata } = require('../lib/metadata')
 
 exports.command = 'mount <mnt> [key]'
 exports.desc = 'Mount a hyperdrive at the specified mountpoint.'
@@ -34,7 +34,7 @@ exports.handler = async function (argv) {
         bearer: metadata.token
       },
       body,
-      resolveWithFullResponse: true,
+      resolveWithFullResponse: true
     })
     if (rsp.statusCode === 201) {
       let { key, mnt } = rsp.body
@@ -46,4 +46,3 @@ exports.handler = async function (argv) {
     console.error(chalk.red(`Could not mount hyperdrive: ${err}`))
   }
 }
-

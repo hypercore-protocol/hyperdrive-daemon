@@ -2,7 +2,6 @@ const p = require('path')
 const { URL } = require('url')
 const request = require('request-promise-native')
 const chalk = require('chalk')
-const { Monitor }  = require('forever-monitor')
 const forever = require('forever')
 
 const { loadMetadata, createMetadata } = require('../lib/metadata')
@@ -42,6 +41,7 @@ async function start (argv) {
   let endpoint = `http://localhost:${argv.port}`
   await createMetadata(endpoint)
   forever.startDaemon(p.join(__dirname, '..', 'index.js'), {
+    uid: 'hypermount',
     max: 1,
     logFile: './hypermount.log',
     outFile: './hypermount.log',

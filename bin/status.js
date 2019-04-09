@@ -1,7 +1,7 @@
 const request = require('request-promise-native')
 const chalk = require('chalk')
 
-const { loadMetadata, createMetadata } = require('../lib/metadata')
+const { loadMetadata } = require('../lib/metadata')
 
 exports.command = 'status'
 exports.desc = 'Get information about the hypermount daemon.'
@@ -23,4 +23,3 @@ exports.handler = async function (argv) {
     console.error(chalk.red(`Could not get server status: ${err}`))
   }
 }
-

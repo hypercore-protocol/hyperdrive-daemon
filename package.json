@@ -35,9 +35,11 @@
     "hyperdrive": "git+https://github.com/mafintosh/hyperdrive.git#v10",
     "hyperdrive-fuse": "git+https://github.com/andrewosh/hyperdrive-fuse",
     "level": "^4.0.0",
+    "mkdirp": "^0.5.1",
     "request": "^2.88.0",
     "request-promise-native": "^1.0.7",
     "sodium-universal": "^2.0.0",
+    "through2": "^3.0.1",
     "yargs": "^13.2.1"
   },
   "devDependencies": {

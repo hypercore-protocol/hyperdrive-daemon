@@ -1,12 +1,21 @@
-const datEncoding = require('dat-encoding')
+const p = require('path')
+
 const corestore = require('corestore')
 const hyperdrive = require('hyperdrive')
 const hyperfuse = require('hyperdrive-fuse')
 const express = require('express')
 const level = require('level')
+const through = require('through2')
+const pump = require('pump')
+const mkdirp = require('mkdirp')
 const argv = require('yargs').argv
 
 const { loadMetadata } = require('./lib/metadata')
+
+const Status = {
+  UNMOUNTED: 0,
+  MOUNTED: 1
+}
 
 class Hypermount {
   constructor (store) {
@@ -28,11 +37,11 @@ class Hypermount {
       sparseMetadata: (opts.sparseMetadata !== undefined) ? opts.sparseMetadata : true
     })
 
-    return hyperfuse.mount(drive, mnt) 
+    return hyperfuse.mount(drive, mnt)
   }
 
   unmount (mnt) {
-    return hyperfuse.unmount(mnt) 
+    return hyperfuse.unmount(mnt)
   }
 
   close () {
@@ -42,10 +51,24 @@ class Hypermount {
 
 async function start () {
   const metadata = await loadMetadata()
-  const store = corestore(argv.storage || './storage', {
+  const storageRoot = argv.storage || './storage'
+
+  await (() => {
+    return new Promise((resolve, reject) => {
+      mkdirp(storageRoot, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  })()
+
+  const store = corestore(p.join(storageRoot, 'cores'), {
     network: {
       port: argv.replicationPort || 3006
     }
+  })
+  const db = level(p.join(storageRoot, 'db'), {
+    valueEncoding: 'json'
   })
   const hypermount = new Hypermount(store)
   const app = express()
@@ -60,38 +83,117 @@ async function start () {
   app.post('/mount', async (req, res) => {
     try {
       console.log('req.body:', req.body)
-      let { key, mnt } = await hypermount.mount(req.body.key, req.body.mnt, req.body)
+      let { key, mnt } = req.body
+      key = await mount(hypermount, db, key, mnt, req.body)
       return res.status(201).json({ key, mnt })
     } catch (err) {
       console.error('Mount error:', err)
       return res.sendStatus(500)
     }
   })
+
   app.post('/unmount', async (req, res) => {
     try {
-      await hypermount.unmount(req.body.mnt)
+      const mnt = req.body.mnt
+      await unmount(hypermount, db, mnt)
+
       return res.sendStatus(200)
     } catch (err) {
       console.error('Unmount error:', err)
       return res.sendStatus(500)
     }
   })
+
   app.post('/close', async (req, res) => {
     try {
+      await unmountAll(hypermount, db)
+      console.log('unmounted them all')
       await store.close()
+      await db.close()
       server.close()
-      return res.sendStatus(200)
+
+      res.sendStatus(200)
     } catch (err) {
       console.error('Close error:', err)
       return res.sendStatus(500)
     }
   })
+
   app.get('/status', async (req, res) => {
     return res.sendStatus(200)
   })
 
   await store.ready()
+  await refreshMounts(hypermount, db)
+
   var server = app.listen(argv.port || 3005)
+}
+
+async function mount (hypermount, db, key, mnt, opts) {
+  let { key: mountedKey } = await hypermount.mount(key, mnt, opts)
+
+  await db.put(mnt, {
+    ...opts,
+    key: mountedKey,
+    mnt,
+    status: Status.MOUNTED
+  })
+
+  return mountedKey
+}
+
+async function unmount (hypermount, db, mnt) {
+  await hypermount.unmount(mnt)
+
+  let record = await db.get(mnt)
+  if (!record) return
+  record.status = Status.UNMOUNTED
+
+  await db.put(mnt, record)
+}
+
+function unmountAll (hypermount, db) {
+  return new Promise((resolve, reject) => {
+    pump(
+      db.createReadStream(),
+      through.obj(({ key, value: record }, enc, cb) => {
+        if (record.status === Status.MOUNTED) {
+          console.log('UNMOUNTING in unmountAll:', key)
+          let unmountPromise = unmount(hypermount, db, key)
+          unmountPromise.then(() => cb(null))
+          unmountPromise.catch(err => cb(err))
+        } else {
+          return cb(null)
+        }
+      }),
+      err => {
+        if (err) return reject(err)
+        return resolve()
+      }
+    )
+  })
+}
+
+function refreshMounts (hypermount, db) {
+  return new Promise((resolve, reject) => {
+    pump(
+      db.createReadStream(),
+      through.obj(({ key, value: record }, enc, cb) => {
+        if (record.status === Status.UNMOUNTED) {
+          console.log(`Refreshing mount for ${JSON.stringify(record)}`)
+          const mountPromise = mount(hypermount, db, record.key, key, record)
+          mountPromise.then(() => cb(null))
+          mountPromise.catch(cb)
+        } else {
+          return cb(null)
+        }
+      }),
+      err => {
+        if (err) return reject(err)
+        return resolve()
+      }
+    )
+  })
 }
 
 if (require.main === module) {
