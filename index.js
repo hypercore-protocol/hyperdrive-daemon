@@ -106,12 +106,7 @@ async function start () {
 
   app.post('/close', async (req, res) => {
     try {
-      await unmountAll(hypermount, db)
-      console.log('unmounted them all')
-      await store.close()
-      await db.close()
-      server.close()
-
+      await cleanup()
       res.sendStatus(200)
     } catch (err) {
       console.error('Close error:', err)
@@ -126,7 +121,17 @@ async function start () {
   await store.ready()
   await refreshMounts(hypermount, db)
 
+  process.once('SIGINT', cleanup)
+  process.once('SIGTERM', cleanup)
+
   var server = app.listen(argv.port || 3005)
+
+  async function cleanup () {
+    await unmountAll(hypermount, db)
+    await store.close()
+    await db.close()
+    server.close()
+  }
 }
 
 async function mount (hypermount, db, key, mnt, opts) {
@@ -180,7 +185,6 @@ function refreshMounts (hypermount, db) {
       db.createReadStream(),
       through.obj(({ key, value: record }, enc, cb) => {
         if (record.status === Status.UNMOUNTED) {
-          console.log(`Refreshing mount for ${JSON.stringify(record)}`)
           const mountPromise = mount(hypermount, db, record.key, key, record)
           mountPromise.then(() => cb(null))
           mountPromise.catch(cb)
