@@ -26,6 +26,7 @@
   "homepage": "https://github.com/andrewosh/hypermount#readme",
   "dependencies": {
     "chalk": "^2.4.2",
+    "collect-stream": "^1.2.1",
     "corestore": "^1.2.2",
     "dat-encoding": "^5.0.1",
     "express": "^4.16.4",

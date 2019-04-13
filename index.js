@@ -8,6 +8,7 @@ const level = require('level')
 const through = require('through2')
 const pump = require('pump')
 const mkdirp = require('mkdirp')
+const collect = require('collect-stream')
 const argv = require('yargs').argv
 
 const { loadMetadata } = require('./lib/metadata')
@@ -118,6 +119,16 @@ async function start () {
     return res.sendStatus(200)
   })
 
+  app.get('/list', async (req, res) => {
+    try {
+      let result = await list(db)
+      return res.json(result)
+    } catch (err) {
+      console.error('List error:', err)
+      return res.sendStatus(500)
+    }
+  })
+
   await store.ready()
   await refreshMounts(hypermount, db)
 
@@ -132,6 +143,20 @@ async function start () {
     await db.close()
     server.close()
   }
+}
+
+function list (db) {
+  return new Promise((resolve, reject) => {
+    const result = {}
+    const stream = db.createReadStream()
+    stream.on('data', ({ key: mnt, value: record }) => {
+      result[record.key] = mnt
+    })
+    stream.on('end', () => {
+      return resolve(result)
+    })
+    stream.on('error', reject)
+  })
 }
 
 async function mount (hypermount, db, key, mnt, opts) {
