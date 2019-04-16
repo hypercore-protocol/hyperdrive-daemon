@@ -54,7 +54,7 @@ This command takes options:
 #### `hypermount unmount <mountpoint>`
 Unmount a Hyperdrive that's been previously mounted at `mountpoint`, if it exists.
 
-*Note: This command will currently not delete or unseed the Hyperdrive. Support for this will be added soon.
+*Note: This command will currently not delete or unseed the Hyperdrive. Support for this will be added soon.*
 
 #### `hypermount list`
 Display information about all mounted Hyperdrives.
