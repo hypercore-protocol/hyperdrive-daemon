@@ -21,9 +21,10 @@ const Status = {
 class Hypermount {
   constructor (store) {
     this.store = store
+    this.drives = new Map()
   }
 
-  mount (key, mnt, opts) {
+  async mount (key, mnt, opts) {
     if (typeof opts === 'function') return this.mount(key, mnt, null, opts)
     opts = opts || {}
 
@@ -38,7 +39,10 @@ class Hypermount {
       sparseMetadata: (opts.sparseMetadata !== undefined) ? opts.sparseMetadata : true
     })
 
-    return hyperfuse.mount(drive, mnt)
+    const mountInfo = await hyperfuse.mount(drive, mnt)
+    this.drives.set(mountInfo.key, drive)
+
+    return mountInfo
   }
 
   unmount (mnt) {
@@ -83,7 +87,6 @@ async function start () {
 
   app.post('/mount', async (req, res) => {
     try {
-      console.log('req.body:', req.body)
       let { key, mnt } = req.body
       key = await mount(hypermount, db, key, mnt, req.body)
       return res.status(201).json({ key, mnt })
@@ -121,7 +124,7 @@ async function start () {
 
   app.get('/list', async (req, res) => {
     try {
-      let result = await list(db)
+      let result = await list(hypermount, db)
       return res.json(result)
     } catch (err) {
       console.error('List error:', err)
@@ -145,12 +148,17 @@ async function start () {
   }
 }
 
-function list (db) {
+function list (hypermount, db) {
   return new Promise((resolve, reject) => {
     const result = {}
     const stream = db.createReadStream()
     stream.on('data', ({ key: mnt, value: record }) => {
-      result[record.key] = mnt
+      const entry = result[record.key] = { mnt }
+      const drive = hypermount.drives.get(record.key)
+      entry.networking = {
+        metadata: drive.metadata.stats,
+        content: drive.content && drive.content.stats
+      }
     })
     stream.on('end', () => {
       return resolve(result)
@@ -188,7 +196,6 @@ function unmountAll (hypermount, db) {
       db.createReadStream(),
       through.obj(({ key, value: record }, enc, cb) => {
         if (record.status === Status.MOUNTED) {
-          console.log('UNMOUNTING in unmountAll:', key)
           let unmountPromise = unmount(hypermount, db, key)
           unmountPromise.then(() => cb(null))
           unmountPromise.catch(err => cb(err))
