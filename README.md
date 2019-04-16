@@ -4,12 +4,12 @@ A FUSE-mountable distributed filesystem, built with Hyperdrive.
 Hypermount lets your mount Hyperdrives as directories on both OSX and Linux. To generate and seed a new Hyperdrive, mounted at a  just run:
 ```
 ❯ hypermount mount me
-Mounted 8a18b05e95e2e20eca9e66cdeff5b926c7c553edc34c7ffc06054edbb1810f7e at /home/andrewosh/friends/me
+Mounted 8a18b05e95e2e20eca9e66cdeff5b926c7c553edc34c7ffc06054edbb1810f7e at friends/me
 ```
 This command will give you a Hyperdrive key you can share with others. A friend can subsequently mount this drive:
 ```
 ❯ hypermount mount andrew 8a18b05e95e2e20eca9e66cdeff5b926c7c553edc34c7ffc06054edbb1810f7e
-Mounted 8a18b05e95e2e20eca9e66cdeff5b926c7c553edc34c7ffc06054edbb1810f7e at /home/andrewosh/friends/andrew
+Mounted 8a18b05e95e2e20eca9e66cdeff5b926c7c553edc34c7ffc06054edbb1810f7e at friends/andrew
 ```
 
 Once your drives are mounted, you can treat them as you would any other directory!
