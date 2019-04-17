@@ -1,4 +1,4 @@
-# ⏏️ hypermount
+# ⛰️ hypermount
 A FUSE-mountable distributed filesystem, built with Hyperdrive.
 
 Hypermount lets your mount Hyperdrives as directories on both OSX and Linux. To generate and seed a new Hyperdrive, mounted at a  just run:
