@@ -46,9 +46,14 @@ class Hypermount {
       force: true,
       displayFolder: true
     })
+    await this.db.put(mnt, {
+      ...opts,
+      key: mountInfo.key,
+      mnt
+    })
     this.drives.set(mountInfo.key, drive)
 
-    return mountInfo
+    return mountInfo.key
   }
 
   unmount (mnt) {
@@ -59,25 +64,10 @@ class Hypermount {
     return this.store.close()
   }
 
-  async mount (key, mnt, opts) {
-    let { key: mountedKey } = await this.mount(key, mnt, opts)
-
-    await this.db.put(mnt, {
-      ...opts,
-      key: mountedKey,
-      mnt
-    })
-
-    return mountedKey
-  }
-
   async unmount (mnt) {
-    await this.unmount(mnt)
-
     let record = await this.db.get(mnt)
     if (!record) return
-
-    await this.db.put(mnt, record)
+    await hyperfuse.unmount(mnt)
   }
 
   unmountAll () {
@@ -140,7 +130,7 @@ class Hypermount {
   }
 }
 
-function bindRoutes (app, hypermount) {
+function bindRoutes (app, metadata, hypermount, cleanup) {
   app.use(express.json())
   app.use((req, res, next) => {
     if (!req.headers.authorization) return res.sendStatus(403)
@@ -154,7 +144,6 @@ function bindRoutes (app, hypermount) {
       key = await hypermount.mount(key, mnt, req.body)
       return res.status(201).json({ key, mnt })
     } catch (err) {
-      console.error('Mount error:', err)
       return res.sendStatus(500)
     }
   })
@@ -163,10 +152,8 @@ function bindRoutes (app, hypermount) {
     try {
       const mnt = req.body.mnt
       await hypermount.unmount(mnt)
-
       return res.sendStatus(200)
     } catch (err) {
-      console.error('Unmount error:', err)
       return res.sendStatus(500)
     }
   })
@@ -175,8 +162,8 @@ function bindRoutes (app, hypermount) {
     try {
       await cleanup()
       res.sendStatus(200)
+      process.exit(0)
     } catch (err) {
-      console.error('Close error:', err)
       return res.sendStatus(500)
     }
   })
@@ -190,7 +177,6 @@ function bindRoutes (app, hypermount) {
       let result = await hypermount.list()
       return res.json(result)
     } catch (err) {
-      console.error('List error:', err)
       return res.sendStatus(500)
     }
   })
@@ -223,7 +209,7 @@ async function start () {
   await hypermount.ready()
   await hypermount.refreshMounts()
 
-  bindRoutes(app, hypermount)
+  bindRoutes(app, metadata, hypermount, cleanup)
   var server = app.listen(argv.port || 3005)
 
   process.once('SIGINT', cleanup)
