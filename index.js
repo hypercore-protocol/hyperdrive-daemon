@@ -112,8 +112,14 @@ class Hypermount {
         const entry = result[record.key] = { mnt }
         const drive = this.drives.get(record.key)
         entry.networking = {
-          metadata: drive.metadata.stats,
-          content: drive.content && drive.content.stats
+          metadata: {
+            ...drive.metadata.stats,
+            peers: drive.metadata.peers.length
+          },
+          content: drive.content && {
+            ...drive.content.stats,
+            peers: drive.content.peers.length
+          }
         }
       })
       stream.on('end', () => {

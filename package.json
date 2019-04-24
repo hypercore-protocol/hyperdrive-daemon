@@ -39,6 +39,7 @@
     "level": "^4.0.0",
     "mkdirp": "^0.5.1",
     "ora": "^3.4.0",
+    "prettier-bytes": "^1.0.4",
     "random-access-memory": "^3.1.1",
     "request": "^2.88.0",
     "request-promise-native": "^1.0.7",

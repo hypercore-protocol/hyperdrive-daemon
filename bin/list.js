@@ -1,4 +1,5 @@
 const request = require('request-promise-native')
+const pretty = require('prettier-bytes')
 const chalk = require('chalk')
 
 const { loadMetadata } = require('../lib/metadata')
@@ -19,13 +20,14 @@ exports.handler = async function (argv) {
       for (let key of Object.keys(rsp.body)) {
         const { mnt, networking } = rsp.body[key]
         console.log(`${chalk.green(key)} => ${chalk.green(mnt)}`)
-        console.log(`  Network Stats:`)
-        console.log(`    Metadata:`)
-        console.log(`      Uploaded:   ${networking.metadata.totals.uploadedBytes / 1e6} MB`)
-        console.log(`      Downloaded: ${networking.metadata.totals.downloadedBytes / 1e6} MB`)
-        console.log(`    Content:`)
-        console.log(`      Uploaded:   ${networking.content.totals.uploadedBytes / 1e6} MB`)
-        console.log(`      Downloaded: ${networking.content.totals.downloadedBytes / 1e6} MB`)
+        console.log(chalk.yellow(`    Metadata:`))
+        console.log(`      Connected Peers: ${networking.metadata.peers}`)
+        console.log(`      Uploaded:        ${pretty(networking.metadata.totals.uploadedBytes)}`)
+        console.log(`      Downloaded:      ${pretty(networking.metadata.totals.downloadedBytes)}`)
+        console.log(chalk.yellow(`    Content:`))
+        console.log(`      Connected Peers: ${networking.content.peers}`)
+        console.log(`      Uploaded:        ${pretty(networking.content.totals.uploadedBytes)}`)
+        console.log(`      Downloaded:      ${pretty(networking.content.totals.downloadedBytes)}`)
       }
     } else {
       console.log(chalk.orange('Cannot get the deamon\'s mount list.'))
