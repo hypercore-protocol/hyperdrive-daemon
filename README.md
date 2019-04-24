@@ -1,4 +1,4 @@
-# ⏏️ hypermount
+# ⛰️ hypermount
 A FUSE-mountable distributed filesystem, built with Hyperdrive.
 
 Hypermount lets your mount Hyperdrives as directories on both OSX and Linux. To generate and seed a new Hyperdrive, mounted at a  just run:
@@ -34,6 +34,22 @@ Successfully configured FUSE!
 ```
 
 You should only need to perform this step once (it will persist across restarts).
+
+### Starting the Daemon
+
+After installing/configuring, you'll need to start the daemon before running any other commands. To do this, first pick a storage directory for your mounted Hyperdrives.
+
+From within this storage directory, run:
+```
+❯ hypermount start
+Daemon started at http://localhost:3101
+```
+
+If you want to stop the daemon, you can run:
+```
+❯ hypermount stop
+The Hypermount daemon has been stopped.
+```
 
 ## Usage
 
