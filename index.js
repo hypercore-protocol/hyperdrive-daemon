@@ -11,17 +11,19 @@ const mkdirp = require('mkdirp')
 const collect = require('collect-stream')
 const argv = require('yargs').argv
 
+const hypercore = require('hypercore')
+
 const { loadMetadata } = require('./lib/metadata')
 
-const Status = {
-  UNMOUNTED: 0,
-  MOUNTED: 1
-}
-
 class Hypermount {
-  constructor (store) {
+  constructor (store, db) {
     this.store = store
+    this.db = db
     this.drives = new Map()
+  }
+
+  ready () {
+    return this.store.ready()
   }
 
   async mount (key, mnt, opts) {
@@ -32,6 +34,7 @@ class Hypermount {
       coreOpts.seed = (opts.seed !== undefined) ? opts.seed : true
       return this.store.get(key, coreOpts)
     }
+
     const drive = hyperdrive(factory, key, {
       ...opts,
       factory: true,
@@ -39,7 +42,10 @@ class Hypermount {
       sparseMetadata: (opts.sparseMetadata !== undefined) ? opts.sparseMetadata : true
     })
 
-    const mountInfo = await hyperfuse.mount(drive, mnt)
+    const mountInfo = await hyperfuse.mount(drive, mnt, {
+      force: true,
+      displayFolder: true
+    })
     this.drives.set(mountInfo.key, drive)
 
     return mountInfo
@@ -52,32 +58,89 @@ class Hypermount {
   close () {
     return this.store.close()
   }
+
+  async mount (key, mnt, opts) {
+    let { key: mountedKey } = await this.mount(key, mnt, opts)
+
+    await this.db.put(mnt, {
+      ...opts,
+      key: mountedKey,
+      mnt
+    })
+
+    return mountedKey
+  }
+
+  async unmount (mnt) {
+    await this.unmount(mnt)
+
+    let record = await this.db.get(mnt)
+    if (!record) return
+
+    await this.db.put(mnt, record)
+  }
+
+  unmountAll () {
+    return new Promise((resolve, reject) => {
+      pump(
+        this.db.createReadStream(),
+        through.obj(({ key, value: record }, enc, cb) => {
+          let unmountPromise = this.unmount(key)
+          unmountPromise.then(() => cb(null))
+          unmountPromise.catch(err => cb(err))
+        }),
+        err => {
+          if (err) return reject(err)
+          return resolve()
+        }
+      )
+    })
+  }
+
+  refreshMounts () {
+    return new Promise((resolve, reject) => {
+      pump(
+        this.db.createReadStream(),
+        through.obj(({ key, value: record }, enc, cb) => {
+          const mountPromise = this.mount(record.key, key, record)
+          mountPromise.then(() => cb(null))
+          mountPromise.catch(cb)
+        }),
+        err => {
+          if (err) return reject(err)
+          return resolve()
+        }
+      )
+    })
+  }
+
+  list () {
+    return new Promise((resolve, reject) => {
+      const result = {}
+      const stream = this.db.createReadStream()
+      stream.on('data', ({ key: mnt, value: record }) => {
+        const entry = result[record.key] = { mnt }
+        const drive = this.drives.get(record.key)
+        entry.networking = {
+          metadata: drive.metadata.stats,
+          content: drive.content && drive.content.stats
+        }
+      })
+      stream.on('end', () => {
+        return resolve(result)
+      })
+      stream.on('error', reject)
+    })
+  }
+
+  async cleanup () {
+    await this.unmountAll()
+    await this.store.close()
+    await this.db.close()
+  }
 }
 
-async function start () {
-  const metadata = await loadMetadata()
-  const storageRoot = argv.storage || './storage'
-
-  await (() => {
-    return new Promise((resolve, reject) => {
-      mkdirp(storageRoot, err => {
-        if (err) return reject(err)
-        return resolve()
-      })
-    })
-  })()
-
-  const store = corestore(p.join(storageRoot, 'cores'), {
-    network: {
-      port: argv.replicationPort || 3006
-    }
-  })
-  const db = level(p.join(storageRoot, 'db'), {
-    valueEncoding: 'json'
-  })
-  const hypermount = new Hypermount(store)
-  const app = express()
-
+function bindRoutes (app, hypermount) {
   app.use(express.json())
   app.use((req, res, next) => {
     if (!req.headers.authorization) return res.sendStatus(403)
@@ -88,7 +151,7 @@ async function start () {
   app.post('/mount', async (req, res) => {
     try {
       let { key, mnt } = req.body
-      key = await mount(hypermount, db, key, mnt, req.body)
+      key = await hypermount.mount(key, mnt, req.body)
       return res.status(201).json({ key, mnt })
     } catch (err) {
       console.error('Mount error:', err)
@@ -99,7 +162,7 @@ async function start () {
   app.post('/unmount', async (req, res) => {
     try {
       const mnt = req.body.mnt
-      await unmount(hypermount, db, mnt)
+      await hypermount.unmount(mnt)
 
       return res.sendStatus(200)
     } catch (err) {
@@ -124,113 +187,56 @@ async function start () {
 
   app.get('/list', async (req, res) => {
     try {
-      let result = await list(hypermount, db)
+      let result = await hypermount.list()
       return res.json(result)
     } catch (err) {
       console.error('List error:', err)
       return res.sendStatus(500)
     }
   })
+}
 
-  await store.ready()
-  await refreshMounts(hypermount, db)
+async function start () {
+  const metadata = await loadMetadata()
+  const storageRoot = argv.storage || './storage'
+
+  await (() => {
+    return new Promise((resolve, reject) => {
+      mkdirp(storageRoot, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  })()
+
+  const store = corestore(p.join(storageRoot, 'cores'), {
+    network: {
+      port: argv.replicationPort || 3006
+    }
+  })
+  const db = level(p.join(storageRoot, 'db'), {
+    valueEncoding: 'json'
+  })
+  const hypermount = new Hypermount(store, db)
+  const app = express()
+
+  await hypermount.ready()
+  await hypermount.refreshMounts()
+
+  bindRoutes(app, hypermount)
+  var server = app.listen(argv.port || 3005)
 
   process.once('SIGINT', cleanup)
   process.once('SIGTERM', cleanup)
-
-  var server = app.listen(argv.port || 3005)
+  process.once('unhandledRejection', cleanup)
+  process.once('uncaughtException', cleanup)
 
   async function cleanup () {
-    await unmountAll(hypermount, db)
-    await store.close()
-    await db.close()
+    await hypermount.cleanup()
     server.close()
   }
 }
 
-function list (hypermount, db) {
-  return new Promise((resolve, reject) => {
-    const result = {}
-    const stream = db.createReadStream()
-    stream.on('data', ({ key: mnt, value: record }) => {
-      const entry = result[record.key] = { mnt }
-      const drive = hypermount.drives.get(record.key)
-      entry.networking = {
-        metadata: drive.metadata.stats,
-        content: drive.content && drive.content.stats
-      }
-    })
-    stream.on('end', () => {
-      return resolve(result)
-    })
-    stream.on('error', reject)
-  })
-}
-
-async function mount (hypermount, db, key, mnt, opts) {
-  let { key: mountedKey } = await hypermount.mount(key, mnt, opts)
-
-  await db.put(mnt, {
-    ...opts,
-    key: mountedKey,
-    mnt,
-    status: Status.MOUNTED
-  })
-
-  return mountedKey
-}
-
-async function unmount (hypermount, db, mnt) {
-  await hypermount.unmount(mnt)
-
-  let record = await db.get(mnt)
-  if (!record) return
-  record.status = Status.UNMOUNTED
-
-  await db.put(mnt, record)
-}
-
-function unmountAll (hypermount, db) {
-  return new Promise((resolve, reject) => {
-    pump(
-      db.createReadStream(),
-      through.obj(({ key, value: record }, enc, cb) => {
-        if (record.status === Status.MOUNTED) {
-          let unmountPromise = unmount(hypermount, db, key)
-          unmountPromise.then(() => cb(null))
-          unmountPromise.catch(err => cb(err))
-        } else {
-          return cb(null)
-        }
-      }),
-      err => {
-        if (err) return reject(err)
-        return resolve()
-      }
-    )
-  })
-}
-
-function refreshMounts (hypermount, db) {
-  return new Promise((resolve, reject) => {
-    pump(
-      db.createReadStream(),
-      through.obj(({ key, value: record }, enc, cb) => {
-        if (record.status === Status.UNMOUNTED) {
-          const mountPromise = mount(hypermount, db, record.key, key, record)
-          mountPromise.then(() => cb(null))
-          mountPromise.catch(cb)
-        } else {
-          return cb(null)
-        }
-      }),
-      err => {
-        if (err) return reject(err)
-        return resolve()
-      }
-    )
-  })
-}
 
 if (require.main === module) {
   start()

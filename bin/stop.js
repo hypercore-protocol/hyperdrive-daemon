@@ -17,8 +17,7 @@ exports.handler = async function (argv) {
       })
       console.log(chalk.green(`The Hypermount daemon has been stopped.`))
     } catch (err) {
-      console.log('err:', err)
-      console.error(chalk.red(`Could not stop the daemon.`))
+      console.error(chalk.red(`Could not stop the daemon. Are you using any mountpoints?`))
     }
   }
 }
