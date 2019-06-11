@@ -30,14 +30,21 @@ class HyperdriveDaemon extends EventEmitter {
     this.db = level(`${storage}/db`, { valueEncoding: 'json' })
     this.opts = opts
 
+    const dbs = {
+      megastore: sub(this.db, 'megastore'),
+      fuse: sub(this.db, 'fuse', { valueEncoding: 'json' }),
+      drives: sub(this.db, 'drives', { valueEncoding: 'json' })
+    }
+
     const megastoreOpts = {
       storage: path => raf(`${storage}/cores/${path}`),
-      db: sub(this.db, 'megastore'),
+      db: dbs.megastore,
       networker: new SwarmNetworker(opts.network)
     }
+
     this.megastore = new Megastore(megastoreOpts.storage, megastoreOpts.db , megastoreOpts.networker)
-    this.drives = new DriveManager(this.megastore, sub(this.db, 'drives'), this.opts)
-    this.fuse = hyperfuse ? new FuseManager(this.megastore, this.drives, sub(this.db, 'fuse'), this.opts) : null
+    this.drives = new DriveManager(this.megastore, dbs.drives, this.opts)
+    this.fuse = hyperfuse ? new FuseManager(this.megastore, this.drives, dbs.fuse, this.opts) : null
 
     this.drives.on('error', err => this.emit('error', err))
     this.fuse.on('error', err => this.emit('error', err))
@@ -90,26 +97,25 @@ async function start () {
   const storageRoot = argv.storage
   await ensureStorage()
 
-  const hypermount = new HyperdriveDaemon(storageRoot)
-  await hypermount.ready()
+  const daemon = new HyperdriveDaemon(storageRoot)
+  await daemon.ready()
 
   const server = new grpc.Server();
   if (hyperfuse) {
     server.addService(rpc.fuse.services.FuseService, {
-      ...authenticate(metadata, catchErrors(createFuseHandlers(this.fuseManager)))
+      ...wrap(metadata, createFuseHandlers(daemon.fuse), { authenticate: true })
     })
   }
   server.addService(rpc.drive.services.DriveService, {
-    ...authenticate(metadata, catchErrors(createDriveHandlers(this.driveManager)))
+    ...wrap(metadata, createDriveHandlers(daemon.drives), { authenticate: true })
   })
   server.addService(rpc.main.services.HyperdriveService, {
-    ...authenticate(metadata, catchErrors(createMainHandlers(this)))
+    ...wrap(metadata, createMainHandlers(daemon), { authenticate: true })
   })
 
-  console.log('binding server...')
   server.bind(`0.0.0.0:${argv.port}`, grpc.ServerCredentials.createInsecure())
   server.start()
-  console.log('server started.')
+  log.info({ port: argv.port }, 'server listening')
 
   process.once('SIGINT', cleanup)
   process.once('SIGTERM', cleanup)
@@ -117,7 +123,7 @@ async function start () {
   process.once('uncaughtException', cleanup)
 
   async function cleanup () {
-    await hypermount.close()
+    await daemon.close()
     server.tryDestroy()
   }
 
@@ -131,26 +137,47 @@ async function start () {
   }
 }
 
-function authenticate (metadata, methods) {
-  const authenticated = {}
+function wrap (metadata, methods) {
+  const promisified = promisify(methods)
+  let authenticated = authenticate(metadata, methods)
+}
+
+function wrap (metadata, methods, opts) {
+  const wrapped = {}
+  const authenticate = opts && opts.authenticate
   for (const methodName of Object.keys(methods)) {
     const method = methods[methodName]
-    authenticated[methodName] = function (call, ...args) {
-      const cb = args[args.length - 1]
-      const token = call.metadata && call.metadata.token
-      if (!token || !token.equals(metadata.token)) {
-        const err = {
-          code: grpc.status.UNAUTHENTICATED,
-          message: 'Invalid auth token.'
+    wrapped[methodName] = function (call, ...args) {
+      const tag = { method: methodName, received: Date.now() }
+      const cb = args.length ? args[args.length - 1] : null
+      if (authenticate) {
+        let token = call.metadata && call.metadata.get('token')
+        if (token) token = token[0]
+        log.trace({ ...tag, token }, 'received token')
+        if (!token || token !== metadata.token) {
+          log.error(tag, 'request authentication failed')
+          const err = {
+            code: grpc.status.UNAUTHENTICATED,
+            message: 'Invalid auth token.'
+          }
+          if (cb) return cb(err)
+          return call.destroy(err)
         }
-        if (cb) return cb(err)
-        return call.destroy(err)
+        log.debug(tag, 'request authentication succeeded')
       }
-
-      return method(call, ...args)
+      method(call)
+        .then(rsp => {
+          log.debug(tag, 'request was successful')
+          if (cb) return cb(null, rsp)
+        })
+        .catch(err => {
+          log.error({ ...tag, error: err.toString(), stack: err.stack }, 'request failed')
+          if (cb) return cb(serverError(err))
+          return call.destroy(err)
+        })
     }
   }
-  return authenticated
+  return wrapped
 }
 
 function createMainHandlers (daemon) {

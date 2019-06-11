@@ -21,16 +21,13 @@ exports.builder = {
 }
 exports.handler = async function (argv) {
   const client = new HyperdriveClient(`localhost:${argv.port}`)
-  console.log(0)
   client.ready(err => {
-    console.log('err:', err)
     if (err) return onerror(err)
     console.log(chalk.green('The Hyperdrive daemon is already running.'))
   })
 
   function onerror (err) {
     if (!err.disconnected) return showError(err)
-    console.log('starting here')
     start(argv).catch(showError)
   }
 
@@ -41,7 +38,6 @@ exports.handler = async function (argv) {
 }
 
 async function start (argv) {
-  console.log('in start')
   let endpoint = `localhost:${argv.port}`
   await createMetadata(endpoint)
   forever.startDaemon(p.join(__dirname, '..', 'index.js'), {
