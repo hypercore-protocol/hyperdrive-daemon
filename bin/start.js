@@ -1,52 +1,56 @@
 const p = require('path')
-const { URL } = require('url')
-const request = require('request-promise-native')
 const chalk = require('chalk')
 const forever = require('forever')
 
-const { loadMetadata, createMetadata } = require('../lib/metadata')
+const { createMetadata } = require('../lib/metadata')
+const { HyperdriveClient } = require('hyperdrive-daemon-client')
 
 exports.command = 'start'
-exports.desc = 'Start the Hypermount daemon.'
+exports.desc = 'Start the Hyperdrive daemon.'
 exports.builder = {
   port: {
-    description: 'The HTTP port that the daemon will bind to.',
+    description: 'The gRPC port that the daemon will bind to.',
     type: 'number',
     default: 3101
   },
-  replicationPort: {
-    description: 'The port that the hypercore replicator will bind to.',
-    type: 'number',
-    default: 3102
+  storage: {
+    description: 'The storage directory for hyperdrives and associated metadata.',
+    type: 'string',
+    default: './storage'
   }
 }
 exports.handler = async function (argv) {
-  let metadata = await loadMetadata()
-  if (metadata) {
-    try {
-      await request.get(new URL('/status', metadata.endpoint).toString(), {
-        auth: {
-          bearer: metadata.token
-        }
-      })
-    } catch (err) {
-      await start(argv)
-    }
-  } else {
-    await start(argv)
+  const client = new HyperdriveClient(`localhost:${argv.port}`)
+  console.log(0)
+  client.ready(err => {
+    console.log('err:', err)
+    if (err) return onerror(err)
+    console.log(chalk.green('The Hyperdrive daemon is already running.'))
+  })
+
+  function onerror (err) {
+    if (!err.disconnected) return showError(err)
+    console.log('starting here')
+    start(argv).catch(showError)
+  }
+
+  function showError (err) {
+    console.error(chalk.red('Could not start the Hyperdrive daemon:'))
+    console.error(chalk.red(`   ${err}`))
   }
 }
 
 async function start (argv) {
-  let endpoint = `http://localhost:${argv.port}`
+  console.log('in start')
+  let endpoint = `localhost:${argv.port}`
   await createMetadata(endpoint)
   forever.startDaemon(p.join(__dirname, '..', 'index.js'), {
-    uid: 'hypermount',
+    uid: 'hyperdrive',
     max: 1,
-    logFile: './hypermount.log',
-    outFile: './hypermount.log',
-    errFile: './hypermount.log',
-    args: ['--replicationPort', argv.replicationPort, '--port', argv.port]
+    logFile: './hyperdrive.log',
+    outFile: './hyperdrive.log',
+    errFile: './hyperdrive.log',
+    args: ['--port', argv.port, '--storage', argv.storage]
   })
   console.log(chalk.green(`Daemon started at ${endpoint}`))
 }

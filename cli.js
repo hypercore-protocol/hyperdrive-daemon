@@ -1,7 +1,10 @@
 #!/usr/bin/env node
-const yargs = require('yargs')
+const client = require('hyperdrive-daemon-client/cli')
 
-yargs.commandDir('bin')
+client.commandDir('bin')
   .demandCommand()
   .help()
   .argv
+
+
+

@@ -4,7 +4,7 @@
   "description": "A FUSE-mountable distributed filesystem, built on Hyperdrive",
   "main": "index.js",
   "bin": {
-    "hypermount": "./cli.js"
+    "hyperdrive": "./cli.js"
   },
   "scripts": {
     "test": "tape test/*.js"
@@ -27,24 +27,23 @@
   "dependencies": {
     "chalk": "^2.4.2",
     "collect-stream": "^1.2.1",
-    "corestore": "^1.2.2",
     "dat-encoding": "^5.0.1",
-    "express": "^4.16.4",
     "forever": "^0.15.3",
     "forever-monitor": "^1.7.1",
     "fs-extra": "^7.0.1",
-    "hypercore": "^6.26.0",
+    "google-protobuf": "^3.8.0",
+    "grpc": "^1.21.1",
     "hyperdrive": "^10.0.0-rc0",
+    "hyperdrive-daemon-client": "^1.0.0",
     "hyperdrive-fuse": "^1.0.0-rc0",
     "level": "^4.0.0",
     "mkdirp": "^0.5.1",
     "ora": "^3.4.0",
+    "pino": "^5.12.6",
     "prettier-bytes": "^1.0.4",
     "random-access-memory": "^3.1.1",
-    "request": "^2.88.0",
-    "request-promise-native": "^1.0.7",
     "sodium-universal": "^2.0.0",
-    "through2": "^3.0.1",
+    "subleveldown": "^4.0.0",
     "yargs": "^13.2.1"
   },
   "devDependencies": {

@@ -1,222 +1,115 @@
 const p = require('path')
+const { EventEmitter } = require('events')
 
-const corestore = require('corestore')
-const hyperdrive = require('hyperdrive')
-const hyperfuse = require('hyperdrive-fuse')
-const express = require('express')
-const level = require('level')
-const through = require('through2')
-const pump = require('pump')
 const mkdirp = require('mkdirp')
-const collect = require('collect-stream')
+const raf = require('random-access-file')
+const level = require('level')
+const sub = require('subleveldown')
 const argv = require('yargs').argv
+const grpc = require('grpc')
+const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
 
-const hypercore = require('hypercore')
+const Megastore = require('megastore')
+const SwarmNetworker = require('megastore-swarm-networking')
 
-const { loadMetadata } = require('./lib/metadata')
+const { DriveManager, createDriveHandlers } = require('./lib/drives')
+const { catchErrors, serverError, requestError } = require('./lib/errors')
 
-class Hypermount {
-  constructor (store, db) {
-    this.store = store
-    this.db = db
-    this.drives = new Map()
-  }
+try {
+  var hyperfuse = require('hyperdrive-fuse')
+  var { FuseManager, createFuseHandlers } = require('./lib/fuse')
+} catch (err) {
+  console.warn('FUSE bindings are not available on this platform.')
+}
+const log = require('./lib/log').child({ component: 'server' })
 
-  ready () {
-    return this.store.ready()
-  }
+class HyperdriveDaemon extends EventEmitter {
+  constructor (storage, opts = {}) {
+    super()
 
-  async mount (key, mnt, opts) {
-    if (typeof opts === 'function') return this.mount(key, mnt, null, opts)
-    opts = opts || {}
+    this.db = level(`${storage}/db`, { valueEncoding: 'json' })
+    this.opts = opts
 
-    const factory = (key, coreOpts) => {
-      coreOpts.seed = (opts.seed !== undefined) ? opts.seed : true
-      return this.store.get(key, coreOpts)
+    const megastoreOpts = {
+      storage: path => raf(`${storage}/cores/${path}`),
+      db: sub(this.db, 'megastore'),
+      networker: new SwarmNetworker(opts.network)
     }
+    this.megastore = new Megastore(megastoreOpts.storage, megastoreOpts.db , megastoreOpts.networker)
+    this.drives = new DriveManager(this.megastore, sub(this.db, 'drives'), this.opts)
+    this.fuse = hyperfuse ? new FuseManager(this.megastore, this.drives, sub(this.db, 'fuse'), this.opts) : null
 
-    const drive = hyperdrive(factory, key, {
-      ...opts,
-      factory: true,
-      sparse: (opts.sparse !== undefined) ? opts.sparse : true,
-      sparseMetadata: (opts.sparseMetadata !== undefined) ? opts.sparseMetadata : true
-    })
+    this.drives.on('error', err => this.emit('error', err))
+    this.fuse.on('error', err => this.emit('error', err))
 
-    const mountInfo = await hyperfuse.mount(drive, mnt, {
-      force: true,
-      displayFolder: true
-    })
-    await this.db.put(mnt, {
-      ...opts,
-      key: mountInfo.key,
-      mnt
-    })
-    this.drives.set(mountInfo.key, drive)
+    this._isClosed = false
+    this._isReady = false
 
-    return mountInfo.key
+    this.ready = () => {
+      if (this._isReady) return Promise.resolve()
+      return this._ready()
+    }
   }
 
-  unmount (mnt) {
-    return hyperfuse.unmount(mnt)
+  _ready () {
+    return Promise.all([
+      this.db.open(),
+      this.megastore.ready(),
+      this.drives.ready(),
+      this.fuse ? this.fuse.ready() : Promise.resolve()
+    ]).then(() => {
+      this._ready = true
+    })
   }
 
   close () {
-    return this.store.close()
-  }
-
-  async unmount (mnt) {
-    let record = await this.db.get(mnt)
-    if (!record) return
-    await hyperfuse.unmount(mnt)
-  }
-
-  unmountAll () {
+    if (this._isClosed) return Promise.resolve()
     return new Promise((resolve, reject) => {
-      pump(
-        this.db.createReadStream(),
-        through.obj(({ key, value: record }, enc, cb) => {
-          let unmountPromise = this.unmount(key)
-          unmountPromise.then(() => cb(null))
-          unmountPromise.catch(err => cb(err))
-        }),
-        err => {
-          if (err) return reject(err)
-          return resolve()
-        }
-      )
-    })
-  }
-
-  refreshMounts () {
-    return new Promise((resolve, reject) => {
-      pump(
-        this.db.createReadStream(),
-        through.obj(({ key, value: record }, enc, cb) => {
-          const mountPromise = this.mount(record.key, key, record)
-          mountPromise.then(() => cb(null))
-          mountPromise.catch(cb)
-        }),
-        err => {
-          if (err) return reject(err)
-          return resolve()
-        }
-      )
-    })
-  }
-
-  list () {
-    return new Promise((resolve, reject) => {
-      const result = {}
-      const stream = this.db.createReadStream()
-      stream.on('data', ({ key: mnt, value: record }) => {
-        const entry = result[record.key] = { mnt }
-        const drive = this.drives.get(record.key)
-        entry.networking = {
-          metadata: {
-            ...drive.metadata.stats,
-            peers: drive.metadata.peers.length
-          },
-          content: drive.content && {
-            ...drive.content.stats,
-            peers: drive.content.peers.length
-          }
-        }
+      this.megastore.close(err => {
+      if (err) return reject(err)
+        this._isClosed = true
+        return resolve()
       })
-      stream.on('end', () => {
-        return resolve(result)
-      })
-      stream.on('error', reject)
     })
   }
 
   async cleanup () {
-    await this.unmountAll()
-    await this.store.close()
+    await this.unmountRoot()
+    await this.megastore.close()
     await this.db.close()
   }
 }
 
-function bindRoutes (app, metadata, hypermount, cleanup) {
-  app.use(express.json())
-  app.use((req, res, next) => {
-    if (!req.headers.authorization) return res.sendStatus(403)
-    if (!req.headers.authorization === `Bearer ${metadata.token}`) return res.sendStatus(403)
-    return next()
-  })
-
-  app.post('/mount', async (req, res) => {
-    try {
-      let { key, mnt } = req.body
-      key = await hypermount.mount(key, mnt, req.body)
-      return res.status(201).json({ key, mnt })
-    } catch (err) {
-      return res.sendStatus(500)
-    }
-  })
-
-  app.post('/unmount', async (req, res) => {
-    try {
-      const mnt = req.body.mnt
-      await hypermount.unmount(mnt)
-      return res.sendStatus(200)
-    } catch (err) {
-      return res.sendStatus(500)
-    }
-  })
-
-  app.post('/close', async (req, res) => {
-    try {
-      await cleanup()
-      res.sendStatus(200)
-      process.exit(0)
-    } catch (err) {
-      return res.sendStatus(500)
-    }
-  })
-
-  app.get('/status', async (req, res) => {
-    return res.sendStatus(200)
-  })
-
-  app.get('/list', async (req, res) => {
-    try {
-      let result = await hypermount.list()
-      return res.json(result)
-    } catch (err) {
-      return res.sendStatus(500)
-    }
-  })
-}
-
 async function start () {
-  const metadata = await loadMetadata()
-  const storageRoot = argv.storage || './storage'
-
-  await (() => {
-    return new Promise((resolve, reject) => {
-      mkdirp(storageRoot, err => {
-        if (err) return reject(err)
-        return resolve()
-      })
+  const metadata = await new Promise((resolve, reject) => {
+    loadMetadata((err, metadata) => {
+      if (err) return reject(err)
+      return resolve(metadata)
     })
-  })()
-
-  const store = corestore(p.join(storageRoot, 'cores'), {
-    network: {
-      port: argv.replicationPort || 3006
-    }
   })
-  const db = level(p.join(storageRoot, 'db'), {
-    valueEncoding: 'json'
-  })
-  const hypermount = new Hypermount(store, db)
-  const app = express()
+  const storageRoot = argv.storage
+  await ensureStorage()
 
+  const hypermount = new HyperdriveDaemon(storageRoot)
   await hypermount.ready()
-  await hypermount.refreshMounts()
 
-  bindRoutes(app, metadata, hypermount, cleanup)
-  var server = app.listen(argv.port || 3005)
+  const server = new grpc.Server();
+  if (hyperfuse) {
+    server.addService(rpc.fuse.services.FuseService, {
+      ...authenticate(metadata, catchErrors(createFuseHandlers(this.fuseManager)))
+    })
+  }
+  server.addService(rpc.drive.services.DriveService, {
+    ...authenticate(metadata, catchErrors(createDriveHandlers(this.driveManager)))
+  })
+  server.addService(rpc.main.services.HyperdriveService, {
+    ...authenticate(metadata, catchErrors(createMainHandlers(this)))
+  })
+
+  console.log('binding server...')
+  server.bind(`0.0.0.0:${argv.port}`, grpc.ServerCredentials.createInsecure())
+  server.start()
+  console.log('server started.')
 
   process.once('SIGINT', cleanup)
   process.once('SIGTERM', cleanup)
@@ -224,11 +117,54 @@ async function start () {
   process.once('uncaughtException', cleanup)
 
   async function cleanup () {
-    await hypermount.cleanup()
-    server.close()
+    await hypermount.close()
+    server.tryDestroy()
+  }
+
+  function ensureStorage () {
+    return new Promise((resolve, reject) => {
+      mkdirp(storageRoot, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
   }
 }
 
+function authenticate (metadata, methods) {
+  const authenticated = {}
+  for (const methodName of Object.keys(methods)) {
+    const method = methods[methodName]
+    authenticated[methodName] = function (call, ...args) {
+      const cb = args[args.length - 1]
+      const token = call.metadata && call.metadata.token
+      if (!token || !token.equals(metadata.token)) {
+        const err = {
+          code: grpc.status.UNAUTHENTICATED,
+          message: 'Invalid auth token.'
+        }
+        if (cb) return cb(err)
+        return call.destroy(err)
+      }
+
+      return method(call, ...args)
+    }
+  }
+  return authenticated
+}
+
+function createMainHandlers (daemon) {
+  return {
+    stop: async (call) => {
+      await daemon.cleanup()
+      return new rpc.main.messages.StopResponse()
+    },
+
+    status: async (call) => {
+      return new rpc.main.messages.StatusResponse()
+    }
+  }
+}
 
 if (require.main === module) {
   start()
