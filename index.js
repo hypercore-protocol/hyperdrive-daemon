@@ -188,7 +188,7 @@ function createMainHandlers (server, daemon) {
         console.error('Daemon is exiting.')
         server.forceShutdown()
         process.exit(0)
-      }, 1000)
+      }, 250)
       return new rpc.main.messages.StopResponse()
     },
 
