@@ -81,7 +81,7 @@ class HyperdriveDaemon extends EventEmitter {
   }
 
   async cleanup () {
-    await this.unmountRoot()
+    if (this.fuse && this.fuse.fuseConfigured) await this.fuse.unmount()
     await this.megastore.close()
     await this.db.close()
   }
@@ -110,7 +110,7 @@ async function start () {
     ...wrap(metadata, createDriveHandlers(daemon.drives), { authenticate: true })
   })
   server.addService(rpc.main.services.HyperdriveService, {
-    ...wrap(metadata, createMainHandlers(daemon), { authenticate: true })
+    ...wrap(metadata, createMainHandlers(server, daemon), { authenticate: true })
   })
 
   server.bind(`0.0.0.0:${argv.port}`, grpc.ServerCredentials.createInsecure())
@@ -180,10 +180,15 @@ function wrap (metadata, methods, opts) {
   return wrapped
 }
 
-function createMainHandlers (daemon) {
+function createMainHandlers (server, daemon) {
   return {
     stop: async (call) => {
       await daemon.cleanup()
+      setTimeout(() => {
+        console.error('Daemon is exiting.')
+        server.forceShutdown()
+        process.exit(0)
+      }, 1000)
       return new rpc.main.messages.StopResponse()
     },
 

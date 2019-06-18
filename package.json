@@ -1,5 +1,5 @@
 {
-  "name": "hypermount",
+  "name": "hyperdrive-daemon",
   "version": "1.0.0-rc4",
   "description": "A FUSE-mountable distributed filesystem, built on Hyperdrive",
   "main": "index.js",
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/andrewosh/hypermount.git"
+    "url": "git+https://github.com/andrewosh/hyperdrive-daemon.git"
   },
   "keywords": [
     "hyperdrive",
@@ -21,9 +21,9 @@
   "author": "Andrew Osheorff <andrewosh@gmail.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/andrewosh/hypermount/issues"
+    "url": "https://github.com/andrewosh/hyperdrive-daemon/issues"
   },
-  "homepage": "https://github.com/andrewosh/hypermount#readme",
+  "homepage": "https://github.com/andrewosh/hyperdrive-daemon#readme",
   "dependencies": {
     "chalk": "^2.4.2",
     "collect-stream": "^1.2.1",
@@ -33,9 +33,9 @@
     "fs-extra": "^7.0.1",
     "google-protobuf": "^3.8.0",
     "grpc": "^1.21.1",
-    "hyperdrive": "^10.0.0-rc0",
-    "hyperdrive-daemon-client": "^1.0.0",
-    "hyperdrive-fuse": "^1.0.0-rc0",
+    "hyperdrive": "git+https://github.com/mafintosh/hyperdrive#v10-mounts",
+    "hyperdrive-daemon-client": "^0.9.0",
+    "hyperdrive-fuse": "^1.1.0",
     "level": "^4.0.0",
     "mkdirp": "^0.5.1",
     "megastore": "^0.9.0",

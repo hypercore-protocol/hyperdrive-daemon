@@ -1,4 +1,5 @@
 const p = require('path')
+const fs = require('fs')
 const { spawn, exec } = require('child_process')
 
 const hyperfuse = require('hyperdrive-fuse')
@@ -9,28 +10,57 @@ exports.command = 'setup'
 exports.desc = 'Run a one-time configuration step for FUSE.'
 exports.handler = async function (argv) {
   console.log(chalk.blue('Configuring FUSE...'))
-  hyperfuse.isConfigured((err, configured) => {
+
+  configureFuse((err, fuseMsg) => {
     if (err) return onerror(err)
-    if (configured) return onsuccess('FUSE is already configured!')
-    return configure()
+    return makeRootDrive((err, driveMsg) => {
+      if (err) return onerror(err)
+      return onsuccess([fuseMsg, driveMsg])
+    })
   })
 
-  function configure () {
-    exec('which node', (err, nodePath) => {
+  function configureFuse (cb) {
+    hyperfuse.isConfigured((err, fuseConfigured) => {
       if (err) return onerror(err)
-      nodePath = nodePath.trim()
-      const child = spawn('sudo', [nodePath, p.join(__dirname, '../scripts/configure.js')], {
-        stdio: 'inherit'
+      if (fuseConfigured) return cb(null, 'FUSE is already configured.')
+      return configure(cb)
+    })
+
+    function configure (cb) {
+      exec('which node', (err, nodePath) => {
+        if (err) return onerror(err)
+        nodePath = nodePath.trim()
+        const child = spawn('sudo', [nodePath, p.join(__dirname, '../scripts/configure.js')], {
+          stdio: 'inherit'
+        })
+        child.on('exit', code => {
+          if (code !== 0) return cb(new Error('hyperdrive-fuse configuration failed.')) 
+          return cb(null, 'Successfully configured FUSE!')
+        })
       })
-      child.on('exit', code => {
-        if (code !== 0) return onerror() 
-        return onsuccess('Successfully configured FUSE!')
+    }
+  }
+
+  function makeRootDrive (cb) {
+    fs.stat('/hyperdrive', (err, stat) => {
+      if (err && err.errno !== -2) return cb(new Error('Could not get the status of /hyperdrive.'))
+      if (!err && stat) return cb(null, 'The root hyperdrive directory has already been created.')
+      exec('sudo mkdir /hyperdrive', err => {
+        if (err) return cb(new Error('Could not create the /hyperdrive directory.'))
+        exec(`sudo chown ${process.getuid()}:${process.getgid()} /hyperdrive`, err => {
+          if (err) return cb(new Error('Could not change the permissions on the /hyperdrive directory.'))
+          return cb(null, 'Successfully created the the root hyperdrive directory.')
+        })
       })
     })
   }
 
-  function onsuccess (msg) {
-    console.log(chalk.green(msg))
+  function onsuccess (msgs) {
+    console.log(chalk.green('Successfully configured FUSE:'))
+    console.log()
+    for (const msg of msgs) {
+      console.log(chalk.green(`  * ${msg}`))
+    }
   }
 
   function onerror (err) {
