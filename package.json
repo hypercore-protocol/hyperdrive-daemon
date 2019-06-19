@@ -1,6 +1,6 @@
 {
   "name": "hyperdrive-daemon",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "A FUSE-mountable distributed filesystem, built on Hyperdrive",
   "main": "index.js",
   "bin": {
