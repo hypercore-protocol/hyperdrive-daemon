@@ -17,6 +17,11 @@ exports.builder = {
     description: 'The storage directory for hyperdrives and associated metadata.',
     type: 'string',
     default: './storage'
+  },
+  'log-level': {
+    description: 'The log level',
+    type: 'string',
+    default: 'info'
   }
 }
 exports.handler = async function (argv) {
@@ -46,7 +51,7 @@ async function start (argv) {
     logFile: './hyperdrive.log',
     outFile: './hyperdrive.log',
     errFile: './hyperdrive.log',
-    args: ['--port', argv.port, '--storage', argv.storage]
+    args: ['--port', argv.port, '--storage', argv.storage, '--log-level', argv['log-level']]
   })
   console.log(chalk.green(`Daemon started at ${endpoint}`))
 }
