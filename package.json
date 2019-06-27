@@ -38,7 +38,7 @@
     "hyperdrive-fuse": "^1.1.0",
     "level": "^4.0.0",
     "mkdirp": "^0.5.1",
-    "megastore": "^0.9.8",
+    "mini-megastore": "^1.0.0",
     "megastore-swarm-networking": "^1.0.0",
     "ora": "^3.4.0",
     "pino": "^5.12.6",
