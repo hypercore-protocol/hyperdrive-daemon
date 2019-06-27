@@ -9,7 +9,7 @@ const argv = require('yargs').argv
 const grpc = require('grpc')
 const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
 
-const Megastore = require('megastore')
+const Megastore = require('mini-megastore')
 const SwarmNetworker = require('megastore-swarm-networking')
 
 const { DriveManager, createDriveHandlers } = require('./lib/drives')
@@ -31,19 +31,18 @@ class HyperdriveDaemon extends EventEmitter {
     this.opts = opts
 
     const dbs = {
-      megastore: sub(this.db, 'megastore'),
       fuse: sub(this.db, 'fuse', { valueEncoding: 'json' }),
       drives: sub(this.db, 'drives', { valueEncoding: 'json' })
     }
 
     const megastoreOpts = {
       storage: path => raf(`${storage}/cores/${path}`),
-      db: dbs.megastore,
-      networker: new SwarmNetworker(opts.network)
+      sparse: true
     }
 
-    this.megastore = new Megastore(megastoreOpts.storage, megastoreOpts.db , megastoreOpts.networker)
-    this.drives = new DriveManager(this.megastore, dbs.drives, this.opts)
+    this.megastore = new Megastore(megastoreOpts.storage, megastoreOpts)
+    this.networking = new SwarmNetworker(this.megastore, opts.network)
+    this.drives = new DriveManager(this.megastore, this.networking, dbs.drives, this.opts)
     this.fuse = hyperfuse ? new FuseManager(this.megastore, this.drives, dbs.fuse, this.opts) : null
 
     this.drives.on('error', err => this.emit('error', err))
@@ -62,6 +61,7 @@ class HyperdriveDaemon extends EventEmitter {
     return Promise.all([
       this.db.open(),
       this.megastore.ready(),
+      this.networking.listen(),
       this.drives.ready(),
       this.fuse ? this.fuse.ready() : Promise.resolve()
     ]).then(() => {
