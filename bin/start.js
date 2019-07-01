@@ -22,6 +22,11 @@ exports.builder = {
     description: 'The log level',
     type: 'string',
     default: 'info'
+  },
+  'bootstrap': {
+    description: 'Comma-separated bootstrap servers to use.',
+    type: 'array',
+    default: []
   }
 }
 exports.handler = async function (argv) {
@@ -51,7 +56,7 @@ async function start (argv) {
     logFile: './hyperdrive.log',
     outFile: './hyperdrive.log',
     errFile: './hyperdrive.log',
-    args: ['--port', argv.port, '--storage', argv.storage, '--log-level', argv['log-level']]
+    args: ['--port', argv.port, '--storage', argv.storage, '--log-level', argv['log-level'], '--bootstrap', argv.bootstrap.join(',')]
   })
   console.log(chalk.green(`Daemon started at ${endpoint}`))
 }

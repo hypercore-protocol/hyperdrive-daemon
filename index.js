@@ -5,11 +5,10 @@ const mkdirp = require('mkdirp')
 const raf = require('random-access-file')
 const level = require('level')
 const sub = require('subleveldown')
-const argv = require('yargs').argv
 const grpc = require('grpc')
-const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
 
-const Megastore = require('mini-megastore')
+const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
+const corestore = require('random-access-corestore')
 const SwarmNetworker = require('megastore-swarm-networking')
 
 const { DriveManager, createDriveHandlers } = require('./lib/drives')
@@ -23,6 +22,8 @@ try {
 }
 const log = require('./lib/log').child({ component: 'server' })
 
+const argv = extractArguments()
+
 class HyperdriveDaemon extends EventEmitter {
   constructor (storage, opts = {}) {
     super()
@@ -35,14 +36,16 @@ class HyperdriveDaemon extends EventEmitter {
       drives: sub(this.db, 'drives', { valueEncoding: 'json' })
     }
 
-    const megastoreOpts = {
+    const corestoreOpts = {
       storage: path => raf(`${storage}/cores/${path}`),
       sparse: true
     }
+    this.corestore = corestore(corestoreOpts.storage, corestoreOpts)
+    // The root corestore should be bootstrapped with an empty default feed.
+    this.corestore.default()
 
-    this.megastore = new Megastore(megastoreOpts.storage, megastoreOpts)
-    this.networking = new SwarmNetworker(this.megastore, opts.network)
-    this.drives = new DriveManager(this.megastore, this.networking, dbs.drives, this.opts)
+    this.networking = new SwarmNetworker(this.corestore, opts.network)
+    this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, this.opts)
     this.fuse = hyperfuse ? new FuseManager(this.megastore, this.drives, dbs.fuse, this.opts) : null
 
     this.drives.on('error', err => this.emit('error', err))
@@ -97,7 +100,13 @@ async function start () {
   const storageRoot = argv.storage
   await ensureStorage()
 
-  const daemon = new HyperdriveDaemon(storageRoot)
+  const daemonOpts = {}
+  if (argv.bootstrap.length) {
+    daemonOpts.network = {
+      bootstrap: argv.bootstrap
+    }
+  }
+  const daemon = new HyperdriveDaemon(storageRoot, daemonOpts)
   await daemon.ready()
 
   const server = new grpc.Server();
@@ -135,6 +144,23 @@ async function start () {
       })
     })
   }
+}
+
+function extractArguments () {
+  return require('yargs')
+    .options({
+      bootstrap: {
+        array: true,
+        default: []
+      },
+      storage: {
+        string: true
+      },
+      port: {
+        number: true
+      }
+    })
+    .argv
 }
 
 function wrap (metadata, methods) {
