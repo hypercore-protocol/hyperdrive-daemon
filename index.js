@@ -9,7 +9,7 @@ const grpc = require('grpc')
 
 const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
 const corestore = require('random-access-corestore')
-const SwarmNetworker = require('megastore-swarm-networking')
+const SwarmNetworker = require('corestore-swarm-networking')
 
 const { DriveManager, createDriveHandlers } = require('./lib/drives')
 const { catchErrors, serverError, requestError } = require('./lib/errors')
@@ -63,7 +63,6 @@ class HyperdriveDaemon extends EventEmitter {
   _ready () {
     return Promise.all([
       this.db.open(),
-      this.megastore.ready(),
       this.networking.listen(),
       this.drives.ready(),
       this.fuse ? this.fuse.ready() : Promise.resolve()
@@ -72,15 +71,10 @@ class HyperdriveDaemon extends EventEmitter {
     })
   }
 
-  close () {
+  async close () {
     if (this._isClosed) return Promise.resolve()
-    return new Promise((resolve, reject) => {
-      this.megastore.close(err => {
-      if (err) return reject(err)
-        this._isClosed = true
-        return resolve()
-      })
-    })
+    if (this.networking) await this.networking.close()
+    this._isClosed = true
   }
 
   async cleanup () {
@@ -90,20 +84,23 @@ class HyperdriveDaemon extends EventEmitter {
   }
 }
 
-async function start () {
+module.exports = async function start (opts = {}) {
   const metadata = await new Promise((resolve, reject) => {
     loadMetadata((err, metadata) => {
       if (err) return reject(err)
       return resolve(metadata)
     })
   })
-  const storageRoot = argv.storage
+  const storageRoot = opts.storage || argv.storage
   await ensureStorage()
 
   const daemonOpts = {}
-  if (argv.bootstrap.length) {
-    daemonOpts.network = {
-      bootstrap: argv.bootstrap
+  const bootstrapOpts = opts.bootstrap || argv.bootstrap
+  if (bootstrapOpts.length) {
+    if (bootstrapOpts === false && bootstrapOpts[0] === 'false') {
+      daemonOpts.network = { bootstrap: false }
+    } else {
+      daemonOpts.network = { bootstrap: bootstrapOpts }
     }
   }
   const daemon = new HyperdriveDaemon(storageRoot, daemonOpts)
@@ -122,18 +119,22 @@ async function start () {
     ...wrap(metadata, createMainHandlers(server, daemon), { authenticate: true })
   })
 
-  server.bind(`0.0.0.0:${argv.port}`, grpc.ServerCredentials.createInsecure())
+
+  const port = opts.port || argv.port
+  server.bind(`0.0.0.0:${port}`, grpc.ServerCredentials.createInsecure())
   server.start()
-  log.info({ port: argv.port }, 'server listening')
+  log.info({ port: port }, 'server listening')
 
   process.once('SIGINT', cleanup)
   process.once('SIGTERM', cleanup)
   process.once('unhandledRejection', cleanup)
   process.once('uncaughtException', cleanup)
 
+  return cleanup
+
   async function cleanup () {
     await daemon.close()
-    server.tryDestroy()
+    server.forceShutdown()
   }
 
   function ensureStorage () {
