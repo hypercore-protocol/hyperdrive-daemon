@@ -85,7 +85,7 @@ class HyperdriveDaemon extends EventEmitter {
 }
 
 module.exports = async function start (opts = {}) {
-  const metadata = await new Promise((resolve, reject) => {
+  const metadata = opts.metadata || await new Promise((resolve, reject) => {
     loadMetadata((err, metadata) => {
       if (err) return reject(err)
       return resolve(metadata)
@@ -96,6 +96,7 @@ module.exports = async function start (opts = {}) {
 
   const daemonOpts = {}
   const bootstrapOpts = opts.bootstrap || argv.bootstrap
+  console.log('BOOTSTRAP OPTS:', opts.bootstrap)
   if (bootstrapOpts.length) {
     if (bootstrapOpts === false && bootstrapOpts[0] === 'false') {
       daemonOpts.network = { bootstrap: false }

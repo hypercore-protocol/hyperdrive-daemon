@@ -1,18 +1,9 @@
-const { spawn } = require('child_process')
-
-const pify = require('pify')
 const test = require('tape')
-const tmp = require('tmp-promise')
 
-const PORT = 3101
-process.env['HYPERDRIVE_TOKEN'] = 'test-token'
-process.env['HYPERDRIVE_ENDPOINT'] = `localhost:${PORT}`
-
-const loadClient = require('hyperdrive-daemon-client/lib/loader')
-const start = require('..')
+const { createOne } = require('./util/create')
 
 test('can write/read a file from a remote hyperdrive', async t => {
-  const { client, cleanup } = await create()
+  const { client, cleanup } = await createOne()
 
   try {
     const { opts, id } = await client.drive.get()
@@ -24,7 +15,7 @@ test('can write/read a file from a remote hyperdrive', async t => {
     const contents = await client.drive.readFile(id, 'hello')
     t.same(contents, Buffer.from('world'))
 
-    await client.drive.closeSession(id)
+    await client.drive.close(id)
   } catch (err) {
     t.fail(err)
   }
@@ -34,7 +25,7 @@ test('can write/read a file from a remote hyperdrive', async t => {
 })
 
 test('can stat a file from a remote hyperdrive', async t => {
-  const { client, cleanup } = await create()
+  const { client, cleanup } = await createOne()
 
   try {
     const { opts, id } = await client.drive.get()
@@ -48,7 +39,7 @@ test('can stat a file from a remote hyperdrive', async t => {
     t.same(stat.uid, 0)
     t.same(stat.gid, 0)
 
-    await client.drive.closeSession(id)
+    await client.drive.close(id)
   } catch (err) {
     t.fail(err)
   }
@@ -58,7 +49,7 @@ test('can stat a file from a remote hyperdrive', async t => {
 })
 
 test('can list a directory from a remote hyperdrive', async t => {
-  const { client, cleanup } = await create()
+  const { client, cleanup } = await createOne()
 
   try {
     const { opts, id } = await client.drive.get()
@@ -67,7 +58,7 @@ test('can list a directory from a remote hyperdrive', async t => {
 
     await client.drive.writeFile(id, 'hello', 'world')
     await client.drive.writeFile(id, 'goodbye', 'dog')
-    await client.drive.writeFile(id, 'adios', 'friend')
+    await client.drive.writeFile(id, 'adios', 'amigo')
 
     const files = await client.drive.readdir(id, '')
     t.same(files.length, 4)
@@ -76,7 +67,7 @@ test('can list a directory from a remote hyperdrive', async t => {
     t.notEqual(files.indexOf('adios'), -1)
     t.notEqual(files.indexOf('.key'), -1)
 
-    await client.drive.closeSession(id)
+    await client.drive.close(id)
   } catch (err) {
     t.fail(err)
   }
@@ -86,7 +77,7 @@ test('can list a directory from a remote hyperdrive', async t => {
 })
 
 test('can read/write multiple remote hyperdrives on one server', async t => {
-  const { client, cleanup } = await create()
+  const { client, cleanup } = await createOne()
   var startingId = 1
 
   const files = [
@@ -116,37 +107,39 @@ test('can read/write multiple remote hyperdrives on one server', async t => {
   t.end()
 })
 
-async function create () {
-  const { path, cleanup: dirCleanup } = await tmp.dir({ unsafeCleanup: true })
-  const stop = await start({
-    storage: path,
-    bootstrap: false,
-    port: 3101
-  })
+test('can mount a drive within a remote hyperdrive', async t => {
+  const { client, cleanup } = await createOne()
 
-  return new Promise((resolve, reject) => {
-    return loadClient((err, client) => {
-      if (err) return reject(err)
-      return resolve({
-        client: {
-          drive: promisifyClass(client.drive),
-          fuse: promisifyClass(client.fuse)
-        },
-        cleanup
-      })
-    })
-  })
+  try {
+    const { opts: opts1, id: id1 } = await client.drive.get()
+    t.true(opts1.key)
+    t.same(id1, 1)
 
-  async function cleanup () {
-    await stop()
-    await dirCleanup()
+    const { opts: opts2, id: id2 } = await client.drive.get()
+    t.true(opts2.key)
+    t.same(id2, 2)
+    t.notEqual(opts1.key, opts2.key)
+
+    const noVersion = { ...opts2, version: null }
+
+    await client.drive.mount(id1, 'a', noVersion)
+
+    await client.drive.writeFile(id1, 'a/hello', 'world')
+    await client.drive.writeFile(id1, 'a/goodbye', 'dog')
+    await client.drive.writeFile(id1, 'adios', 'amigo')
+    await client.drive.writeFile(id2, 'hamster', 'wheel')
+
+    t.same(await client.drive.readFile(id1, 'adios'), Buffer.from('amigo'))
+    t.same(await client.drive.readFile(id1, 'a/hello'), Buffer.from('world'))
+    t.same(await client.drive.readFile(id2, 'hello'), Buffer.from('world'))
+    t.same(await client.drive.readFile(id2, 'hamster'), Buffer.from('wheel'))
+
+    await client.drive.close(id1)
+    await client.drive.close(id2)
+  } catch (err) {
+    t.fail(err)
   }
-}
 
-function promisifyClass (clazz) {
-  const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(clazz)).filter(name => name !== 'constructor')
-  methods.forEach(name => {
-    clazz[name] = pify(clazz[name])
-  })
-  return clazz
-}
+  await cleanup()
+  t.end()
+})
