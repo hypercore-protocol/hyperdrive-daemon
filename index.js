@@ -73,18 +73,14 @@ class HyperdriveDaemon extends EventEmitter {
 
   async close () {
     if (this._isClosed) return Promise.resolve()
-    if (this.networking) await this.networking.close()
-    this._isClosed = true
-  }
-
-  async cleanup () {
     if (this.fuse && this.fuse.fuseConfigured) await this.fuse.unmount()
-    await this.megastore.close()
+    if (this.networking) await this.networking.close()
     await this.db.close()
+    this._isClosed = true
   }
 }
 
-module.exports = async function start (opts = {}) {
+async function start (opts = {}) {
   const metadata = opts.metadata || await new Promise((resolve, reject) => {
     loadMetadata((err, metadata) => {
       if (err) return reject(err)
@@ -213,7 +209,7 @@ function wrap (metadata, methods, opts) {
 function createMainHandlers (server, daemon) {
   return {
     stop: async (call) => {
-      await daemon.cleanup()
+      await daemon.close()
       setTimeout(() => {
         console.error('Daemon is exiting.')
         server.forceShutdown()
@@ -230,4 +226,6 @@ function createMainHandlers (server, daemon) {
 
 if (require.main === module) {
   start()
+} else {
+  module.exports = start
 }
