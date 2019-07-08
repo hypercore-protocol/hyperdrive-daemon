@@ -8,7 +8,7 @@ const sub = require('subleveldown')
 const grpc = require('grpc')
 
 const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
-const corestore = require('random-access-corestore')
+const corestore = require('corestore')
 const SwarmNetworker = require('corestore-swarm-networking')
 
 const { DriveManager, createDriveHandlers } = require('./lib/drives')
@@ -96,7 +96,6 @@ module.exports = async function start (opts = {}) {
 
   const daemonOpts = {}
   const bootstrapOpts = opts.bootstrap || argv.bootstrap
-  console.log('BOOTSTRAP OPTS:', opts.bootstrap)
   if (bootstrapOpts.length) {
     if (bootstrapOpts === false && bootstrapOpts[0] === 'false') {
       daemonOpts.network = { bootstrap: false }
@@ -126,16 +125,19 @@ module.exports = async function start (opts = {}) {
   server.start()
   log.info({ port: port }, 'server listening')
 
-  process.once('SIGINT', cleanup)
-  process.once('SIGTERM', cleanup)
-  process.once('unhandledRejection', cleanup)
-  process.once('uncaughtException', cleanup)
+  const cleanupEvents = ['SIGINT', 'SIGTERM', 'unhandledRejection', 'uncaughtException']
+  for (const event of cleanupEvents) {
+   process.once(event, cleanup)
+  }
 
   return cleanup
 
   async function cleanup () {
     await daemon.close()
     server.forceShutdown()
+    for (const event of cleanupEvents) {
+      process.removeListener(event, cleanup)
+    }
   }
 
   function ensureStorage () {

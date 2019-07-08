@@ -81,6 +81,40 @@ test('can replicate many mounted drives between daemons', async t => {
   }
 })
 
+test('can replicate nested mounts between daemons', async t => {
+  const { clients, cleanup } = await create(2)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+
+  try {
+    const { opts: rootOpts1, id: rootId1 } = await firstClient.drive.get()
+    const { opts: mountOpts1, id: mountId1 } = await firstClient.drive.get()
+    const { opts: mountOpts2, id: mountId2 } = await firstClient.drive.get()
+    await firstClient.drive.publish(mountId2)
+
+    await firstClient.drive.mount(rootId1, 'a', { ...mountOpts1, version: null })
+    await firstClient.drive.mount(mountId1, 'b', { ...mountOpts2, version: null })
+
+    await firstClient.drive.writeFile(mountId2, 'hello', 'world')
+
+    const { opts: rootOpts2, id: rootId2 } = await secondClient.drive.get()
+    const { id: remoteMountId } = await secondClient.drive.get({ key: mountOpts2.key })
+
+    await secondClient.drive.mount(rootId2, 'c', { ...mountOpts2, version: null })
+
+    // 100 ms delay for replication.
+    await delay(100)
+
+    const replicatedContent = await secondClient.drive.readFile(rootId2, 'c/hello')
+    t.same(replicatedContent, Buffer.from('world'))
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
