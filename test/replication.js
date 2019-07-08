@@ -33,15 +33,14 @@ test('can replicate many mounted drives between daemons', async t => {
   const firstClient = clients[0]
   const secondClient = clients[1]
 
-  const NUM_MOUNTS = 100
+  const NUM_MOUNTS = 20
 
   try {
     const mounts = await createFirst()
     const second = await createSecond(mounts)
 
     // 100 ms delay for replication.
-    console.log('VALIDATING IN 10s')
-    await delay(10000)
+    await delay(100)
 
     await validate(mounts, second)
   } catch (err) {
@@ -80,10 +79,6 @@ test('can replicate many mounted drives between daemons', async t => {
       t.same(readContent, Buffer.from(content))
     }
   }
-})
-
-test('can replicate recursive mounts between daemons', async t => {
-  t.end()
 })
 
 function delay (ms) {
