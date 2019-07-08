@@ -1,7 +1,6 @@
 # ⛰️ hyperdrive-daemon
-A FUSE-mountable distributed filesystem and remote Hyperdrive manager.
+A daemon for creating, storing and sharing Hyperdrives. Provides both a gRPC API (see [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client)), and a FUSE interface for mounting drives as directories.
 
-### FUSE Usage
 The Hyperdrive daemon lets your mount Hyperdrives as directories on both OSX and Linux. The daemon requires all users to have a private "root" drive, into which additional subdrives can be mounted and shared with others. After starting the daemon, you can create your root drive as follows:
 ```
 ❯ hyperdrive fs mount
@@ -57,7 +56,7 @@ The daemon also provides a gRPC API for interacting with remote Hyperdrives. [`h
 
 ## Installation
 ```
-npm i hypermount -g
+npm i hyperdrive-daemon -g
 ```
 
 ### Setup
@@ -134,7 +133,7 @@ Makes a subdrive available to the network. If another user has access to the dri
 
 - `mountpoint` must be a subdirectory of `/hyperdrive/home` and must have been previously mounted with the mount subcommand described above.
 
-#### `hyperdrive fs unpublish <mountpoint`
+#### `hyperdrive fs unpublish <mountpoint>`
 Will stop advertising a previously-published subdrive on the network.
 
 *Note: This command will currently not delete the Hyperdrive. Support for this will be added soon.*
