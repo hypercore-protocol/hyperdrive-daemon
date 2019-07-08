@@ -1,33 +1,69 @@
-# ⛰️ hypermount
-A FUSE-mountable distributed filesystem, built with Hyperdrive.
+# ⛰️ hyperdrive-daemon
+A daemon for creating, storing and sharing Hyperdrives. Provides both a gRPC API (see [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client)), and a FUSE interface for mounting drives as directories.
 
-Hypermount lets your mount Hyperdrives as directories on both OSX and Linux. To generate and seed a new Hyperdrive, mounted at a  just run:
+The Hyperdrive daemon lets your mount Hyperdrives as directories on both OSX and Linux. The daemon requires all users to have a private "root" drive, into which additional subdrives can be mounted and shared with others. After starting the daemon, you can create your root drive as follows:
 ```
-❯ hypermount mount me
-Mounted 8a18b05e95e2e20eca9e66cdeff5b926c7c553edc34c7ffc06054edbb1810f7e at friends/me
+❯ hyperdrive fs mount
+Mounted a drive with the following info:
+
+  Mountpoint: /hyperdrive 
+  Key:        49c5b9e4ac75a0f0b00ab911975837dd0c8d429512a13413fe2dad768fc9a0f2 
+  Seeding:    false
+
+This drive is private by default. To publish it, run `hyperdrive fs publish /hyperdrive` 
 ```
-This command will give you a Hyperdrive key you can share with others. A friend can subsequently mount this drive:
+
+You likely won't want to publish or share your root drive with others, but you can create shareable subdrives using the same command:
 ```
-❯ hypermount mount andrew 8a18b05e95e2e20eca9e66cdeff5b926c7c553edc34c7ffc06054edbb1810f7e
-Mounted 8a18b05e95e2e20eca9e66cdeff5b926c7c553edc34c7ffc06054edbb1810f7e at friends/andrew
+❯ hyperdrive fs mount /hyperdrive/home/videos
+Mounted a drive with the following info:
+
+  Mountpoint: /hyperdrive/home/videos 
+  Key:        b432f90b2f817164c32fe5056a06f50c60dc8db946e81331f92e3192f6d4b847 
+  Seeding:    false
+
+This drive is private by default. To publish it, run `hyperdrive fs publish /hyperdrive/home/videos` 
 ```
 
 Once your drives are mounted, you can treat them as you would any other directory!
 
-To make it easier to mount multiple drives, Hypermount runs as a daemonized HTTP server. It maintains a database of mounted Hyperdrives, which it will automatically remount when the daemon is started and unmount when it's stopped.
+Subdrives are private by default (they will not be advertised on the network), but you can make them available with the `fs publish` command:
+```
+❯ hyperdrive fs publish /hyperdrive/home/videos
+Published the drive mounted at /hyperdrive/home/videos
+```
 
-Under the hood, this module uses [corestore](https://github.com/andrewosh/corestore) to manage and seed your library of hypercores.
+After publishing, another user can either:
+1. Mount the same subdrive by key within their own root drive
+2. Inspect the drive inside the `/hyperdrive/by-key` directory (can be a symlink target outside the FUSE mount!):
+```
+❯ cat /hyperdrive/home/videos/.key  
+b432f90b2f817164c32fe5056a06f50c60dc8db946e81331f92e3192f6d4b847
+
+❯ ls /hyperdrive/by-key/b432f90b2f817164c32fe5056a06f50c60dc8db946e81331f92e3192f6d4b847
+vid.mkv
+```
+Or:
+```
+❯ hyperdrive fs mount /hyperdrive/home/a_friends_videos b432f90b2f817164c32fe5056a06f50c60dc8db946e81331f92e3192f6d4b847
+...
+❯ ls /hyperdrive/home/a_friends_videos 
+vid.mkv
+```
+
+### Hyperdrive API
+The daemon also provides a gRPC API for interacting with remote Hyperdrives. [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client) is a Node client that you can use to interact with the API. If you'd like to write a client in another language, check out the schema definitions in [`hyperdrive-schemas`](https://github.com/andrewosh/hypedrive-schemas)
 
 ## Installation
 ```
-npm i hypermount -g
+npm i hyperdrive-daemon -g
 ```
 
 ### Setup
 
 When you first install Hypermount, you'll need to perform a setup step that will install native, prebuilt FUSE bindings. We currently only provide bindings for OSX and Linux. The setup step is the only step that requires `sudo`.
 ```
-❯ hypermount setup
+❯ hyperdrive setup
 Configuring FUSE...
 [sudo] password for andrewosh:
 Successfully configured FUSE!
@@ -41,76 +77,69 @@ After installing/configuring, you'll need to start the daemon before running any
 
 From within this storage directory, run:
 ```
-❯ hypermount start
+❯ hyperdrive start
 Daemon started at http://localhost:3101
 ```
 
 If you want to stop the daemon, you can run:
 ```
-❯ hypermount stop
-The Hypermount daemon has been stopped.
+❯ hyperdrive stop
+The Hyperdrive daemon has been stopped.
 ```
 
-## Usage
+## CLI
 
 Hypermount provides an HTTP interface for mounting, unmounting, and providing status information about all current mounts. There's also a bundled CLI tool which wraps the HTTP interfaces and provides the following commands:
 
-#### `hypermount setup`
+### Basic Commands 
+#### `hyperdrive setup`
 Performs a one-time configuration step that installs FUSE. This command will prompt you for `sudo`.
 
-#### `hypermount mount <mountpoint> [key]`
-If a key is specified, create a Hyperdrive using that key. If not, generate a new one. Once the drive has been created, mount it at `mountpoint`.
+#### `hyperdrive start`
+Start the Hyperdrive daemon.
 
-This command takes options:
+Options include:
 ```
---sparse          Create a sparse content feed.      [boolean] [default: true]
---sparseMetadata  Create a sparse metadata feed.     [boolean] [default: true]
-```
-
-#### `hypermount unmount <mountpoint>`
-Unmount a Hyperdrive that's been previously mounted at `mountpoint`, if it exists.
-
-*Note: This command will currently not delete or unseed the Hyperdrive. Support for this will be added soon.*
-
-#### `hypermount list`
-Display information about all mounted Hyperdrives.
-
-The output takes the form:
-```
-❯ hypermount list
-35127c7db33e884a8b5b054aa8bef510c6faf3688265f0d885241731bf0354b4 => /home/andrewosh/friends/a
-  Network Stats:
-    Metadata:
-      Uploaded:   0 MB
-      Downloaded: 0 MB
-    Content:
-      Uploaded:   0 MB
-      Downloaded: 0 MB
-1fb343ab8362b84155e7554a42d023b376aa71cdc9d94ca9a4efee8a58326d03 => /home/andrewosh/friends/b
-  Network Stats:
-    Metadata:
-      Uploaded:   0 MB
-      Downloaded: 0 MB
-    Content:
-      Uploaded:   0 MB
-      Downloaded: 0 MB
-...
+  --bootstrap ['host:port', 'host:port', ...] // Optional, alternative bootstrap servers
+  --storage   /my/storage/dir                 // A storage directory for cores and the db. Defaults to ./storage
+  --log-level info                            // Logging level
+  --port      3101                            // The port gRPC will bind to.
 ```
 
-#### `hypermount status`
-Display status information about the Hypermount daemon.
+#### `hyperdrive status`
+Gives the current status of the daemon.
 
-#### `hypermount start`
-Launch the Hypermount daemon. When this command is executed, it will use the current working directory as its storage/logging directory. This command must be run before any additional commands (except for `setup`) will work.
+#### `hyperdrive stop`
+Stop the daemon
 
-Takes these options:
-```
-  --port             The HTTP port that the daemon will bind to. [number] [default: 3101]
-  --replicationPort  The port that the hypercore replicator will bind to. [number] [default: 3102]
-```
+### FUSE Commands
+All FUSE-related commands are accessed through the `fs` subcommand. 
 
-#### `hypermount stop`
-Unmount all mounted Hyperdrives and stop the daemon.
+#### `hyperdrive fs mount`
+Mounts your root drive at `/hyperdrive`. This is your top-level, private Hyperdrive -- any drives you'd like to share with others must be created by mounting (a Hyperdrive mount, not a FUSE mount) a subdrive at a specified mountpoint within `/hyperdrive/home`.
+
+Your root drive will persist across restarts. You can use it as a replacement for your normal home directory!
+
+#### `hyperdrive fs mount <mountpoint> [key]`
+Mounts a subdrive within your root drive. The mountpoint must be within `/hyperdrive/home`, and the subdrive's key can be accessed at `/hyperdrive/home/<mountpoint>/.key`.
+
+Newly-created drives are private by default, and can be made available to the network with `hyperdrive fs publish <mountpoint>`.
+
+- `mountpoint` must be a subdirectory of `/hyperdrive/home`. This command will create a mount within your root Hyperdrive.
+- `key` is an optional drive key. If `key` is specified, it will be advertised on the network by default, and your drive will be read-only.
+
+#### `hyperdrive fs publish <mountpoint>`
+Makes a subdrive available to the network. If another user has access to the drive key (in `/hyperdrive/home/<mountpoint>/.key`, then they will only be able to sync the drive after the owner has published it.
+
+- `mountpoint` must be a subdirectory of `/hyperdrive/home` and must have been previously mounted with the mount subcommand described above.
+
+#### `hyperdrive fs unpublish <mountpoint>`
+Will stop advertising a previously-published subdrive on the network.
+
+*Note: This command will currently not delete the Hyperdrive. Support for this will be added soon.*
+
+#### `hyperdrive fs force-unmount`
+If the daemon fails or is not stopped cleanly, then the `/hyperdrive` mountpoint might be left in an unusable state. Running this command before restarting the daemon will forcibly disconnect the mountpoint.
 
 ## License
 
