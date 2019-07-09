@@ -51,9 +51,6 @@ Or:
 vid.mkv
 ```
 
-### Hyperdrive API
-The daemon also provides a gRPC API for interacting with remote Hyperdrives. [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client) is a Node client that you can use to interact with the API. If you'd like to write a client in another language, check out the schema definitions in [`hyperdrive-schemas`](https://github.com/andrewosh/hypedrive-schemas)
-
 ## Installation
 ```
 npm i hyperdrive-daemon -g
@@ -73,9 +70,8 @@ You should only need to perform this step once (it will persist across restarts)
 
 ### Starting the Daemon
 
-After installing/configuring, you'll need to start the daemon before running any other commands. To do this, first pick a storage directory for your mounted Hyperdrives.
+After installing/configuring, you'll need to start the daemon before running any other commands. To do this, first pick a storage directory for your mounted Hyperdrives. By default, the daemon will use `~/.hyperdrive/storage`.
 
-From within this storage directory, run:
 ```
 ❯ hyperdrive start
 Daemon started at http://localhost:3101
@@ -86,6 +82,9 @@ If you want to stop the daemon, you can run:
 ❯ hyperdrive stop
 The Hyperdrive daemon has been stopped.
 ```
+
+## API
+The daemon exposes a gRPC API for interacting with remote Hyperdrives. [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client) is a Node client that you can use to interact with the API. If you'd like to write a client in another language, check out the schema definitions in [`hyperdrive-schemas`](https://github.com/andrewosh/hyperdrive-schemas)
 
 ## CLI
 
@@ -101,7 +100,7 @@ Start the Hyperdrive daemon.
 Options include:
 ```
   --bootstrap ['host:port', 'host:port', ...] // Optional, alternative bootstrap servers
-  --storage   /my/storage/dir                 // A storage directory for cores and the db. Defaults to ./storage
+  --storage   /my/storage/dir                 // The storage directory. Defaults to ~/.hyperdrive/storage
   --log-level info                            // Logging level
   --port      3101                            // The port gRPC will bind to.
 ```
