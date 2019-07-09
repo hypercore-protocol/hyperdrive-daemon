@@ -35,7 +35,7 @@
     "fs-extra": "^7.0.1",
     "google-protobuf": "^3.8.0",
     "grpc": "^1.21.1",
-    "hyperdrive": "^10.0.0-rc6",
+    "hyperdrive": "^10.0.0-rc7",
     "hyperdrive-daemon-client": "^0.9.4",
     "hyperdrive-fuse": "^1.1.0",
     "level": "^4.0.0",
