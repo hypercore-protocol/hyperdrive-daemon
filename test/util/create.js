@@ -1,4 +1,3 @@
-const pify = require('pify')
 const tmp = require('tmp-promise')
 const dht = require('@hyperswarm/dht')
 
