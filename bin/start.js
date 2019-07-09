@@ -8,6 +8,7 @@ const { createMetadata } = require('../lib/metadata')
 const { HyperdriveClient } = require('hyperdrive-daemon-client')
 
 const HYPERDRIVE_DIR = p.join(os.homedir(), '.hyperdrive')
+const OUTPUT_FILE = p.join(HYPERDRIVE_DIR, 'output.log')
 
 exports.command = 'start'
 exports.desc = 'Start the Hyperdrive daemon.'
@@ -57,9 +58,9 @@ async function start (argv) {
   forever.startDaemon(p.join(__dirname, '..', 'index.js'), {
     uid: 'hyperdrive',
     max: 1,
-    logFile: './hyperdrive.log',
-    outFile: './hyperdrive.log',
-    errFile: './hyperdrive.log',
+    logFile: OUTPUT_FILE,
+    outFile: OUTPUT_FILE,
+    errFile: OUTPUT_FILE,
     args: ['--port', argv.port, '--storage', argv.storage, '--log-level', argv['log-level'], '--bootstrap', argv.bootstrap.join(',')]
   })
   console.log(chalk.green(`Daemon started at ${endpoint}`))
