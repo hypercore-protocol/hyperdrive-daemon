@@ -1,5 +1,5 @@
 # ⛰️ hyperdrive-daemon
-*Note: This is currently a prerelease based on the [`v10`](https://github.com/mafintosh/hyperdrive#v10) branch of Hyperdrive. It should be relatively stable, but expect some roughness around the edges.*
+*Note: This is currently a prerelease based on the [`v10`](https://github.com/mafintosh/hyperdrive/tree/v10) branch of Hyperdrive. It should be relatively stable, but expect some roughness around the edges.*
 
 A daemon for creating, storing and sharing Hyperdrives. Provides both a gRPC API (see [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client)), and an optional FUSE interface for mounting drives as directories.
 
