@@ -5,7 +5,7 @@ const dht = require('@hyperswarm/dht')
 const loadClient = require('hyperdrive-daemon-client/lib/loader')
 const start = require('../..')
 
-const BASE_PORT = 3101
+const BASE_PORT = 4101
 const BOOTSTRAP_PORT = 3100
 const BOOTSTRAP_URL = `localhost:${BOOTSTRAP_PORT}`
 
@@ -65,10 +65,7 @@ async function createInstance (id, port, bootstrap) {
     return loadClient(endpoint, token, (err, client) => {
       if (err) return reject(err)
       return resolve({
-        client: {
-          drive: promisifyClass(client.drive),
-          fuse: promisifyClass(client.fuse)
-        },
+        client,
         cleanup
       })
     })
@@ -78,14 +75,6 @@ async function createInstance (id, port, bootstrap) {
     await stop()
     await dirCleanup()
   }
-}
-
-function promisifyClass (clazz) {
-  const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(clazz)).filter(name => name !== 'constructor')
-  methods.forEach(name => {
-    clazz[name] = pify(clazz[name])
-  })
-  return clazz
 }
 
 module.exports = {

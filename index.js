@@ -163,11 +163,6 @@ function extractArguments () {
     .argv
 }
 
-function wrap (metadata, methods) {
-  const promisified = promisify(methods)
-  let authenticated = authenticate(metadata, methods)
-}
-
 function wrap (metadata, methods, opts) {
   const wrapped = {}
   const authenticate = opts && opts.authenticate

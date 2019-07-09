@@ -33,7 +33,7 @@ test('can replicate many mounted drives between daemons', async t => {
   const firstClient = clients[0]
   const secondClient = clients[1]
 
-  const NUM_MOUNTS = 20
+  const NUM_MOUNTS = 15
 
   try {
     const mounts = await createFirst()

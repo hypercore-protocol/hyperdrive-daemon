@@ -1,9 +1,13 @@
 const p = require('path')
+const os = require('os')
+
 const chalk = require('chalk')
 const forever = require('forever')
 
 const { createMetadata } = require('../lib/metadata')
 const { HyperdriveClient } = require('hyperdrive-daemon-client')
+
+const HYPERDRIVE_DIR = p.join(os.homedir(), '.hyperdrive')
 
 exports.command = 'start'
 exports.desc = 'Start the Hyperdrive daemon.'
@@ -16,7 +20,7 @@ exports.builder = {
   storage: {
     description: 'The storage directory for hyperdrives and associated metadata.',
     type: 'string',
-    default: './storage'
+    default: p.join(HYPERDRIVE_DIR, 'storage')
   },
   'log-level': {
     description: 'The log level',
