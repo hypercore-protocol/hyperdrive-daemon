@@ -21,7 +21,6 @@ try {
   console.warn('FUSE bindings are not available on this platform.')
 }
 const log = require('./lib/log').child({ component: 'server' })
-
 const argv = extractArguments()
 
 class HyperdriveDaemon extends EventEmitter {
