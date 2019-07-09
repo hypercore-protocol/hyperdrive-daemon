@@ -91,13 +91,14 @@ async function start (opts = {}) {
 
   const daemonOpts = {}
   const bootstrapOpts = opts.bootstrap || argv.bootstrap
-  if (bootstrapOpts.length) {
+  if (bootstrapOpts.length && bootstrapOpts[0] !== '') {
     if (bootstrapOpts === false && bootstrapOpts[0] === 'false') {
       daemonOpts.network = { bootstrap: false }
     } else {
       daemonOpts.network = { bootstrap: bootstrapOpts }
     }
   }
+
   const daemon = new HyperdriveDaemon(storageRoot, daemonOpts)
   await daemon.ready()
 
