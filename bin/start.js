@@ -26,7 +26,7 @@ exports.builder = {
   'log-level': {
     description: 'The log level',
     type: 'string',
-    default: 'info'
+    default: 'debug'
   },
   bootstrap: {
     description: 'Comma-separated bootstrap servers to use.',
