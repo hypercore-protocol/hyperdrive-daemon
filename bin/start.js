@@ -28,12 +28,13 @@ exports.builder = {
     type: 'string',
     default: 'info'
   },
-  'bootstrap': {
+  bootstrap: {
     description: 'Comma-separated bootstrap servers to use.',
     type: 'array',
     default: []
   }
 }
+
 exports.handler = async function (argv) {
   const client = new HyperdriveClient(`localhost:${argv.port}`)
   client.ready(err => {

@@ -27,16 +27,9 @@ exports.handler = async function (argv) {
     })
 
     function configure (cb) {
-      exec('which node', (err, nodePath) => {
-        if (err) return onerror(err)
-        nodePath = nodePath.trim()
-        const child = spawn('sudo', [nodePath, p.join(__dirname, '../scripts/configure.js')], {
-          stdio: 'inherit'
-        })
-        child.on('exit', code => {
-          if (code !== 0) return cb(new Error('hyperdrive-fuse configuration failed.')) 
-          return cb(null, 'Successfully configured FUSE!')
-        })
+      exec(`sudo ${process.execPath} ${p.join(__dirname, '../scripts/configure.js')}`, err => {
+        if (err) return cb(new Error(`Could not configure hyperdrive-fuse: ${err}`))
+        return cb(null, 'Successfully configured FUSE!')
       })
     }
   }
