@@ -2,13 +2,20 @@ const p = require('path')
 const fs = require('fs')
 const { spawn, exec } = require('child_process')
 
-const hyperfuse = require('hyperdrive-fuse')
+try {
+  var hyperfuse = require('hyperdrive-fuse')
+} catch (err) {
+  console.warn('FUSE installation failed. You will be unable to mount your hyperdrives.')
+}
+
 const ora = require('ora')
 const chalk = require('chalk')
 
 exports.command = 'setup'
 exports.desc = 'Run a one-time configuration step for FUSE.'
 exports.handler = async function (argv) {
+  if (!hyperfuse) return onerror('FUSE installation failed.')
+
   console.log(chalk.blue('Configuring FUSE...'))
 
   configureFuse((err, fuseMsg) => {
