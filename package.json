@@ -25,6 +25,7 @@
   },
   "homepage": "https://github.com/andrewosh/hyperdrive-daemon#readme",
   "dependencies": {
+    "@grpc/grpc-js": "^0.5.1",
     "buffer-json-encoding": "^1.0.2",
     "chalk": "^2.4.2",
     "collect-stream": "^1.2.1",

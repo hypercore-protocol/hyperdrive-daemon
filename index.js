@@ -37,7 +37,9 @@ class HyperdriveDaemon extends EventEmitter {
 
     const corestoreOpts = {
       storage: path => raf(`${storage}/cores/${path}`),
-      sparse: true
+      sparse: true,
+      // Collect networking statistics.
+      stats: true
     }
     this.corestore = corestore(corestoreOpts.storage, corestoreOpts)
     // The root corestore should be bootstrapped with an empty default feed.
