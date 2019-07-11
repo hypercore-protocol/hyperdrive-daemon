@@ -49,6 +49,7 @@ async function createInstance (id, port, bootstrap) {
 
   const token = `test-token-${id}`
   const endpoint = `localhost:${port}`
+  var client
 
   const stop = await start({
     storage: path,
@@ -61,7 +62,8 @@ async function createInstance (id, port, bootstrap) {
   })
 
   return new Promise((resolve, reject) => {
-    return loadClient(endpoint, token, (err, client) => {
+    return loadClient(endpoint, token, (err, c) => {
+      client = c
       if (err) return reject(err)
       return resolve({
         client,

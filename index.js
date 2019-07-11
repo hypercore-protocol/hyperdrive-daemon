@@ -5,7 +5,7 @@ const mkdirp = require('mkdirp')
 const raf = require('random-access-file')
 const level = require('level')
 const sub = require('subleveldown')
-const grpc = require('grpc')
+const grpc = require('@grpc/grpc-js')
 
 const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
 const corestore = require('corestore')
@@ -119,20 +119,30 @@ async function start (opts = {}) {
 
 
   const port = opts.port || argv.port
-  server.bind(`0.0.0.0:${port}`, grpc.ServerCredentials.createInsecure())
-  server.start()
-  log.info({ port: port }, 'server listening')
+  await new Promise((resolve, reject) => {
+    server.bindAsync(`0.0.0.0:${port}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
+      if (err) return reject(err)
+      log.info({ port: port }, 'server listening')
+      server.start()
+      return resolve()
+    })
+  })
 
   const cleanupEvents = ['SIGINT', 'SIGTERM', 'unhandledRejection', 'uncaughtException']
   for (const event of cleanupEvents) {
-   process.once(event, cleanup)
+    process.once(event, cleanup)
   }
 
   return cleanup
 
   async function cleanup () {
     await daemon.close()
-    server.forceShutdown()
+    await new Promise((resolve, reject) => {
+      server.tryShutdown(err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
     for (const event of cleanupEvents) {
       process.removeListener(event, cleanup)
     }
