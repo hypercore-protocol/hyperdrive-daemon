@@ -50,7 +50,7 @@ class HyperdriveDaemon extends EventEmitter {
     this.fuse = hyperfuse ? new FuseManager(this.megastore, this.drives, dbs.fuse, this.opts) : null
 
     this.drives.on('error', err => this.emit('error', err))
-    this.fuse.on('error', err => this.emit('error', err))
+    if (this.fuse) this.fuse.on('error', err => this.emit('error', err))
 
     this._isClosed = false
     this._isReady = false
