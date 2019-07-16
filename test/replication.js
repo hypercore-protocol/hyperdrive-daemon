@@ -115,6 +115,62 @@ test('can replicate nested mounts between daemons', async t => {
   t.end()
 })
 
+test.only('can get networking stats for multiple mounts', async t => {
+  const { clients, cleanup } = await create(2)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+
+  try {
+    const { opts: rootOpts1, id: rootId1 } = await firstClient.drive.get()
+    const { opts: mountOpts1, id: mountId1 } = await firstClient.drive.get()
+    const { opts: mountOpts2, id: mountId2 } = await firstClient.drive.get()
+    await firstClient.drive.publish(mountId2)
+
+    await firstClient.drive.mount(rootId1, 'a', { ...mountOpts1, version: null })
+    await firstClient.drive.mount(rootId1, 'b', { ...mountOpts2, version: null })
+
+    await firstClient.drive.writeFile(mountId2, 'hello', 'world')
+
+    const firstStats = await firstClient.drive.allStats()
+    t.same(firstStats.length, 3)
+    for (const mountStats of firstStats) {
+      t.same(mountStats.length, 1)
+      t.same(mountStats[0].metadata.uploadedBytes, 0)
+    }
+
+    const { opts: rootOpts2, id: rootId2 } = await secondClient.drive.get()
+    const { id: remoteMountId } = await secondClient.drive.get({ key: mountOpts2.key })
+
+    await secondClient.drive.mount(rootId2, 'c', { ...mountOpts2, version: null })
+
+    // 100 ms delay for replication.
+    await delay(100)
+
+    const replicatedContent = await secondClient.drive.readFile(rootId2, 'c/hello')
+    t.same(replicatedContent, Buffer.from('world'))
+
+    const secondStats = await firstClient.drive.allStats()
+    t.same(secondStats.length, 3)
+
+    var uploadedBytes = null
+    for (const mountStats of secondStats) {
+      if (mountStats[0].metadata.key.equals(mountOpts2.key)) {
+        uploadedBytes = mountStats[0].content.uploadedBytes
+        t.notEqual(uploadedBytes, 0)
+      }
+    }
+    t.true(uploadedBytes)
+
+    const thirdStats = await firstClient.drive.stats(mountId2)
+    t.same(thirdStats[0].content.uploadedBytes, uploadedBytes)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }

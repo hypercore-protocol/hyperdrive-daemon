@@ -168,7 +168,7 @@ test('can mount a drive within a remote hyperdrive', async t => {
   t.end()
 })
 
-test.only('can unmount a drive within a remote hyperdrive', async t => {
+test('can unmount a drive within a remote hyperdrive', async t => {
   const { client, cleanup } = await createOne()
 
   try {
@@ -211,5 +211,4 @@ test.only('can unmount a drive within a remote hyperdrive', async t => {
 
   await cleanup()
   t.end()
-
 })
