@@ -40,7 +40,6 @@
     "hyperdrive-daemon-client": "^0.9.10",
     "level": "^4.0.0",
     "mkdirp": "^0.5.1",
-    "ora": "^3.4.0",
     "pino": "^5.12.6",
     "prettier-bytes": "^1.0.4",
     "pump": "^3.0.0",

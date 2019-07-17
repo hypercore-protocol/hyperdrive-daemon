@@ -1,5 +1,4 @@
 const p = require('path')
-const os = require('os')
 
 const chalk = require('chalk')
 const forever = require('forever')
@@ -19,7 +18,7 @@ exports.builder = {
   storage: {
     description: 'The storage directory for hyperdrives and associated metadata.',
     type: 'string',
-    default: constants.storage,
+    default: constants.storage
   },
   'log-level': {
     description: 'The log level',

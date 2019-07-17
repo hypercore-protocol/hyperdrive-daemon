@@ -260,7 +260,7 @@ test('can watch a remote hyperdrive', async t => {
   var triggered = 0
 
   try {
-    const { opts, id } = await client.drive.get()
+    const { id } = await client.drive.get()
 
     const unwatch = client.drive.watch(id, '', () => {
       triggered++
@@ -277,9 +277,7 @@ test('can watch a remote hyperdrive', async t => {
 
   t.true(triggered)
 
-  console.log('before cleanup')
   await cleanup()
-  console.log('after cleanup')
   t.end()
 })
 
@@ -290,7 +288,7 @@ test.skip('watch cleans up after unexpected close', async t => {
   var triggered = 0
 
   try {
-    const { opts, id } = await client.drive.get()
+    const { id } = await client.drive.get()
 
     const unwatch = client.drive.watch(id, '', () => {
       triggered++
@@ -317,8 +315,3 @@ test.onFinish(() => {
     process.exit(0)
   }, 100)
 })
-
-function delay (ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-

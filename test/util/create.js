@@ -21,7 +21,7 @@ async function create (numServers) {
   })
 
   for (let i = 0; i < numServers; i++) {
-    const { client, cleanup } = await createInstance(i, BASE_PORT + i,  [BOOTSTRAP_URL])
+    const { client, cleanup } = await createInstance(i, BASE_PORT + i, [BOOTSTRAP_URL])
     clients.push(client)
     cleanups.push(cleanup)
   }

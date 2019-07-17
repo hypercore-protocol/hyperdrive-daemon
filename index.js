@@ -1,5 +1,3 @@
-const p = require('path')
-const os = require('os')
 const { EventEmitter } = require('events')
 
 const mkdirp = require('mkdirp')
@@ -10,12 +8,11 @@ const grpc = require('@grpc/grpc-js')
 const corestore = require('corestore')
 const SwarmNetworker = require('corestore-swarm-networking')
 
-
 const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
 const DriveManager = require('./lib/drives')
-const { catchErrors, serverError, requestError } = require('./lib/errors')
+const { serverError } = require('./lib/errors')
 
 try {
   var hyperfuse = require('hyperdrive-fuse')
@@ -143,6 +140,7 @@ class HyperdriveDaemon extends EventEmitter {
 
   async stop () {
     if (this._isClosed) return Promise.resolve()
+    if (this.server) this.server.forceShutdown()
 
     if (this.fuse && this.fuse.fuseConfigured) await this.fuse.unmount()
     if (this.networking) await this.networking.close()

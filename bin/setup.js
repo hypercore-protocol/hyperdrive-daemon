@@ -1,6 +1,6 @@
 const p = require('path')
 const fs = require('fs')
-const { spawn, exec } = require('child_process')
+const { exec } = require('child_process')
 
 try {
   var hyperfuse = require('hyperdrive-fuse')
@@ -8,7 +8,6 @@ try {
   console.warn('FUSE installation failed. You will be unable to mount your hyperdrives.')
 }
 
-const ora = require('ora')
 const chalk = require('chalk')
 
 exports.command = 'setup'

@@ -51,7 +51,7 @@ test('can replicate many mounted drives between daemons', async t => {
   t.end()
 
   async function createFirst () {
-    const { opts: rootOpts, id: rootId } = await firstClient.drive.get()
+    const { id: rootId } = await firstClient.drive.get()
     const mounts = []
     for (let i = 0; i < NUM_MOUNTS; i++) {
       const key = '' + i
@@ -65,16 +65,16 @@ test('can replicate many mounted drives between daemons', async t => {
   }
 
   async function createSecond (mounts) {
-    const { opts: rootOpts, id: rootId } = await secondClient.drive.get()
-    for (const { key, path, content } of mounts) {
-      const { id } = await secondClient.drive.get({ key })
+    const { id: rootId } = await secondClient.drive.get()
+    for (const { key, content } of mounts) {
+      await secondClient.drive.get({ key })
       await secondClient.drive.mount(rootId, content, { key })
     }
     return rootId
   }
 
   async function validate (mounts, id) {
-    for (const { key, path, content } of mounts) {
+    for (const { path, content } of mounts) {
       const readContent = await secondClient.drive.readFile(id, path)
       t.same(readContent, Buffer.from(content))
     }
@@ -87,7 +87,7 @@ test('can replicate nested mounts between daemons', async t => {
   const secondClient = clients[1]
 
   try {
-    const { opts: rootOpts1, id: rootId1 } = await firstClient.drive.get()
+    const { id: rootId1 } = await firstClient.drive.get()
     const { opts: mountOpts1, id: mountId1 } = await firstClient.drive.get()
     const { opts: mountOpts2, id: mountId2 } = await firstClient.drive.get()
     await firstClient.drive.publish(mountId2)
@@ -97,8 +97,8 @@ test('can replicate nested mounts between daemons', async t => {
 
     await firstClient.drive.writeFile(mountId2, 'hello', 'world')
 
-    const { opts: rootOpts2, id: rootId2 } = await secondClient.drive.get()
-    const { id: remoteMountId } = await secondClient.drive.get({ key: mountOpts2.key })
+    const { id: rootId2 } = await secondClient.drive.get()
+    await secondClient.drive.get({ key: mountOpts2.key })
 
     await secondClient.drive.mount(rootId2, 'c', { ...mountOpts2, version: null })
 
@@ -121,8 +121,8 @@ test('can get networking stats for multiple mounts', async t => {
   const secondClient = clients[1]
 
   try {
-    const { opts: rootOpts1, id: rootId1 } = await firstClient.drive.get()
-    const { opts: mountOpts1, id: mountId1 } = await firstClient.drive.get()
+    const { id: rootId1 } = await firstClient.drive.get()
+    const { opts: mountOpts1 } = await firstClient.drive.get()
     const { opts: mountOpts2, id: mountId2 } = await firstClient.drive.get()
     await firstClient.drive.publish(mountId2)
 
@@ -138,8 +138,8 @@ test('can get networking stats for multiple mounts', async t => {
       t.same(mountStats[0].metadata.uploadedBytes, 0)
     }
 
-    const { opts: rootOpts2, id: rootId2 } = await secondClient.drive.get()
-    const { id: remoteMountId } = await secondClient.drive.get({ key: mountOpts2.key })
+    const { id: rootId2 } = await secondClient.drive.get()
+    await secondClient.drive.get({ key: mountOpts2.key })
 
     await secondClient.drive.mount(rootId2, 'c', { ...mountOpts2, version: null })
 

@@ -5,6 +5,3 @@ client.commandDir('bin')
   .demandCommand()
   .help()
   .argv
-
-
-
