@@ -49,7 +49,7 @@ test('can write/read a large file from a remote hyperdrive', async t => {
   t.end()
 })
 
-test.only('can write/read a file from a remote hyperdrive using stream methods', async t => {
+test('can write/read a file from a remote hyperdrive using stream methods', async t => {
   const { client, cleanup } = await createOne()
 
   try {
@@ -309,6 +309,13 @@ test.skip('watch cleans up after unexpected close', async t => {
 
   await cleanup()
   t.end()
+})
+
+// TODO: Figure out why the grpc server is not terminating.
+test.onFinish(() => {
+  setTimeout(() => {
+    process.exit(0)
+  }, 100)
 })
 
 function delay (ms) {

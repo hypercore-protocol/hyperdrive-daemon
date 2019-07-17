@@ -10,6 +10,7 @@ const grpc = require('@grpc/grpc-js')
 const corestore = require('corestore')
 const SwarmNetworker = require('corestore-swarm-networking')
 
+
 const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
@@ -34,12 +35,6 @@ class HyperdriveDaemon extends EventEmitter {
     this.storage = opts.storage || constants.storage
     this.port = opts.port || constants.port
 
-    this.db = level(`${this.storage}/db`, { valueEncoding: 'json' })
-    const dbs = {
-      fuse: sub(this.db, 'fuse', { valueEncoding: 'json' }),
-      drives: sub(this.db, 'drives', { valueEncoding: 'json' })
-    }
-
     const corestoreOpts = {
       storage: path => raf(`${this.storage}/cores/${path}`),
       sparse: true,
@@ -60,21 +55,24 @@ class HyperdriveDaemon extends EventEmitter {
     }
     this.networking = new SwarmNetworker(this.corestore, networkOpts)
 
-    this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, this.opts)
-    this.fuse = hyperfuse ? new FuseManager(this.megastore, this.drives, dbs.fuse, this.opts) : null
+    // Set in ready.
+    this.db = null
+    this.drives = null
+    this.fuse = null
+
     // Set in start.
     this.server = null
+    this._isMain = !!opts.main
     this._cleanup = null
 
-    this.drives.on('error', err => this.emit('error', err))
-    this.fuse.on('error', err => this.emit('error', err))
-
     this._isClosed = false
-    this._isReady = false
+    this._readyPromise = false
 
     this.ready = () => {
-      if (this._isReady) return Promise.resolve()
-      return this._ready()
+      if (this._isClosed) return Promise.resolve()
+      if (this._readyPromise) return this._readyPromise
+      this._readyPromise = this._ready()
+      return this._readyPromise
     }
   }
 
@@ -87,14 +85,24 @@ class HyperdriveDaemon extends EventEmitter {
       process.once(event, this._cleanup)
     }
 
-    return Promise.all([
-      this.db.open(),
-      this.networking.listen(),
+    this.networking.listen()
+
+    this.db = level(`${this.storage}/db`, { valueEncoding: 'json' })
+    const dbs = {
+      fuse: sub(this.db, 'fuse', { valueEncoding: 'json' }),
+      drives: sub(this.db, 'drives', { valueEncoding: 'json' })
+    }
+    this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, this.opts)
+    this.fuse = hyperfuse ? new FuseManager(this.drives, dbs.fuse, this.opts) : null
+    this.drives.on('error', err => this.emit('error', err))
+    this.fuse.on('error', err => this.emit('error', err))
+
+    await Promise.all([
       this.drives.ready(),
       this.fuse ? this.fuse.ready() : Promise.resolve()
-    ]).then(() => {
-      this._ready = true
-    })
+    ])
+
+    this._isReady = true
   }
 
   async _loadMetadata () {
@@ -118,10 +126,11 @@ class HyperdriveDaemon extends EventEmitter {
   createMainHandlers () {
     return {
       stop: async (call) => {
-        await this.close()
+        await this.stop()
         setTimeout(() => {
           console.error('Daemon is exiting.')
           this.server.forceShutdown()
+          if (this._isMain) process.exit(0)
         }, 250)
         return new rpc.main.messages.StopResponse()
       },
@@ -137,7 +146,6 @@ class HyperdriveDaemon extends EventEmitter {
 
     if (this.fuse && this.fuse.fuseConfigured) await this.fuse.unmount()
     if (this.networking) await this.networking.close()
-    if (this.server) this.server.forceShutdown()
     await this.db.close()
 
     for (const event of STOP_EVENTS) {
@@ -171,11 +179,6 @@ class HyperdriveDaemon extends EventEmitter {
         return resolve()
       })
     })
-
-
-    async function close () {
-      await this.close()
-    }
   }
 }
 
@@ -236,7 +239,7 @@ function wrap (metadata, methods, opts) {
 
 if (require.main === module) {
   const opts = extractArguments()
-  const daemon = new HyperdriveDaemon(opts)
+  const daemon = new HyperdriveDaemon({ ...opts, main: true })
   daemon.start()
 } else {
   module.exports = HyperdriveDaemon
