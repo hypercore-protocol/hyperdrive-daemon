@@ -6,9 +6,7 @@ const forever = require('forever')
 
 const { createMetadata } = require('../lib/metadata')
 const { HyperdriveClient } = require('hyperdrive-daemon-client')
-
-const HYPERDRIVE_DIR = p.join(os.homedir(), '.hyperdrive')
-const OUTPUT_FILE = p.join(HYPERDRIVE_DIR, 'output.log')
+const constants = require('hyperdrive-daemon-client/lib/constants')
 
 exports.command = 'start'
 exports.desc = 'Start the Hyperdrive daemon.'
@@ -16,22 +14,22 @@ exports.builder = {
   port: {
     description: 'The gRPC port that the daemon will bind to.',
     type: 'number',
-    default: 3101
+    default: constants.port
   },
   storage: {
     description: 'The storage directory for hyperdrives and associated metadata.',
     type: 'string',
-    default: p.join(HYPERDRIVE_DIR, 'storage')
+    default: constants.storage,
   },
   'log-level': {
     description: 'The log level',
     type: 'string',
-    default: 'debug'
+    default: constants.logLevel
   },
   bootstrap: {
     description: 'Comma-separated bootstrap servers to use.',
     type: 'array',
-    default: []
+    default: constants.bootstrap
   }
 }
 
@@ -57,11 +55,11 @@ async function start (argv) {
   let endpoint = `localhost:${argv.port}`
   await createMetadata(endpoint)
   forever.startDaemon(p.join(__dirname, '..', 'index.js'), {
-    uid: 'hyperdrive',
+    uid: constants.uid,
     max: 1,
-    logFile: OUTPUT_FILE,
-    outFile: OUTPUT_FILE,
-    errFile: OUTPUT_FILE,
+    logFile: constants.unstructuredLog,
+    outFile: constants.unstructuredLog,
+    errFile: constants.unstructuredLog,
     args: ['--port', argv.port, '--storage', argv.storage, '--log-level', argv['log-level'], '--bootstrap', argv.bootstrap.join(',')]
   })
   console.log(chalk.green(`Daemon started at ${endpoint}`))

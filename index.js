@@ -1,4 +1,5 @@
 const p = require('path')
+const os = require('os')
 const { EventEmitter } = require('events')
 
 const mkdirp = require('mkdirp')
@@ -6,37 +7,41 @@ const raf = require('random-access-file')
 const level = require('level')
 const sub = require('subleveldown')
 const grpc = require('@grpc/grpc-js')
-
-const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
 const corestore = require('corestore')
 const SwarmNetworker = require('corestore-swarm-networking')
 
-const { DriveManager, createDriveHandlers } = require('./lib/drives')
+const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
+const constants = require('hyperdrive-daemon-client/lib/constants')
+
+const DriveManager = require('./lib/drives')
 const { catchErrors, serverError, requestError } = require('./lib/errors')
 
 try {
   var hyperfuse = require('hyperdrive-fuse')
-  var { FuseManager, createFuseHandlers } = require('./lib/fuse')
+  var FuseManager = require('./lib/fuse')
 } catch (err) {
   console.warn('FUSE bindings are not available on this platform.')
 }
 const log = require('./lib/log').child({ component: 'server' })
-const argv = extractArguments()
+
+const STOP_EVENTS = ['SIGINT', 'SIGTERM', 'unhandledRejection', 'uncaughtException']
 
 class HyperdriveDaemon extends EventEmitter {
-  constructor (storage, opts = {}) {
+  constructor (opts = {}) {
     super()
 
-    this.db = level(`${storage}/db`, { valueEncoding: 'json' })
     this.opts = opts
+    this.storage = opts.storage || constants.storage
+    this.port = opts.port || constants.port
 
+    this.db = level(`${this.storage}/db`, { valueEncoding: 'json' })
     const dbs = {
       fuse: sub(this.db, 'fuse', { valueEncoding: 'json' }),
       drives: sub(this.db, 'drives', { valueEncoding: 'json' })
     }
 
     const corestoreOpts = {
-      storage: path => raf(`${storage}/cores/${path}`),
+      storage: path => raf(`${this.storage}/cores/${path}`),
       sparse: true,
       // Collect networking statistics.
       stats: true
@@ -45,9 +50,21 @@ class HyperdriveDaemon extends EventEmitter {
     // The root corestore should be bootstrapped with an empty default feed.
     this.corestore.default()
 
-    this.networking = new SwarmNetworker(this.corestore, opts.network)
+    const bootstrapOpts = opts.bootstrap || constants.bootstrap
+    if (bootstrapOpts && bootstrapOpts.length && bootstrapOpts[0] !== '') {
+      if (bootstrapOpts === false && bootstrapOpts[0] === 'false') {
+        var networkOpts = { bootstrap: false }
+      } else {
+        networkOpts = { bootstrap: bootstrapOpts }
+      }
+    }
+    this.networking = new SwarmNetworker(this.corestore, networkOpts)
+
     this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, this.opts)
     this.fuse = hyperfuse ? new FuseManager(this.megastore, this.drives, dbs.fuse, this.opts) : null
+    // Set in start.
+    this.server = null
+    this._cleanup = null
 
     this.drives.on('error', err => this.emit('error', err))
     this.fuse.on('error', err => this.emit('error', err))
@@ -61,7 +78,15 @@ class HyperdriveDaemon extends EventEmitter {
     }
   }
 
-  _ready () {
+  async _ready () {
+    await this._loadMetadata()
+    await this._ensureStorage()
+
+    this._cleanup = this.stop.bind(this)
+    for (const event of STOP_EVENTS) {
+      process.once(event, this._cleanup)
+    }
+
     return Promise.all([
       this.db.open(),
       this.networking.listen(),
@@ -72,89 +97,85 @@ class HyperdriveDaemon extends EventEmitter {
     })
   }
 
-  async close () {
+  async _loadMetadata () {
+    this.metadata = this.opts.metadata || await new Promise((resolve, reject) => {
+      loadMetadata((err, metadata) => {
+        if (err) return reject(err)
+        return resolve(metadata)
+      })
+    })
+  }
+
+  _ensureStorage () {
+    return new Promise((resolve, reject) => {
+      mkdirp(this.storage, err => {
+        if (err) return reject(err)
+        return resolve()
+      })
+    })
+  }
+
+  createMainHandlers () {
+    return {
+      stop: async (call) => {
+        await this.close()
+        setTimeout(() => {
+          console.error('Daemon is exiting.')
+          this.server.forceShutdown()
+        }, 250)
+        return new rpc.main.messages.StopResponse()
+      },
+
+      status: async (call) => {
+        return new rpc.main.messages.StatusResponse()
+      }
+    }
+  }
+
+  async stop () {
     if (this._isClosed) return Promise.resolve()
+
     if (this.fuse && this.fuse.fuseConfigured) await this.fuse.unmount()
     if (this.networking) await this.networking.close()
+    if (this.server) this.server.forceShutdown()
     await this.db.close()
+
+    for (const event of STOP_EVENTS) {
+      process.removeListener(event, this._cleanup)
+    }
+
     this._isClosed = true
   }
-}
 
-async function start (opts = {}) {
-  const metadata = opts.metadata || await new Promise((resolve, reject) => {
-    loadMetadata((err, metadata) => {
-      if (err) return reject(err)
-      return resolve(metadata)
-    })
-  })
-  const storageRoot = opts.storage || argv.storage
-  await ensureStorage()
+  async start () {
+    await this.ready()
+    this.server = new grpc.Server()
 
-  const daemonOpts = {}
-  const bootstrapOpts = opts.bootstrap || argv.bootstrap
-  if (bootstrapOpts.length && bootstrapOpts[0] !== '') {
-    if (bootstrapOpts === false && bootstrapOpts[0] === 'false') {
-      daemonOpts.network = { bootstrap: false }
-    } else {
-      daemonOpts.network = { bootstrap: bootstrapOpts }
+    if (hyperfuse) {
+      this.server.addService(rpc.fuse.services.FuseService, {
+        ...wrap(this.metadata, this.fuse.getHandlers(), { authenticate: true })
+      })
     }
-  }
-
-  const daemon = new HyperdriveDaemon(storageRoot, daemonOpts)
-  await daemon.ready()
-
-  const server = new grpc.Server();
-  if (hyperfuse) {
-    server.addService(rpc.fuse.services.FuseService, {
-      ...wrap(metadata, createFuseHandlers(daemon.fuse), { authenticate: true })
+    this.server.addService(rpc.drive.services.DriveService, {
+      ...wrap(this.metadata, this.drives.getHandlers(), { authenticate: true })
     })
-  }
-  server.addService(rpc.drive.services.DriveService, {
-    ...wrap(metadata, createDriveHandlers(daemon.drives), { authenticate: true })
-  })
-  server.addService(rpc.main.services.HyperdriveService, {
-    ...wrap(metadata, createMainHandlers(server, daemon), { authenticate: true })
-  })
-
-
-  const port = opts.port || argv.port
-  await new Promise((resolve, reject) => {
-    server.bindAsync(`0.0.0.0:${port}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
-      if (err) return reject(err)
-      log.info({ port: port }, 'server listening')
-      server.start()
-      return resolve()
+    this.server.addService(rpc.main.services.HyperdriveService, {
+      ...wrap(this.metadata, this.createMainHandlers(), { authenticate: true })
     })
-  })
 
-  const cleanupEvents = ['SIGINT', 'SIGTERM', 'unhandledRejection', 'uncaughtException']
-  for (const event of cleanupEvents) {
-    process.once(event, cleanup)
-  }
-
-  return cleanup
-
-  async function cleanup () {
-    await daemon.close()
     await new Promise((resolve, reject) => {
-      server.tryShutdown(err => {
+      this.server.bindAsync(`0.0.0.0:${this.port}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
         if (err) return reject(err)
+        log.info({ port: port }, 'server listening')
+        this.server.start()
         return resolve()
       })
     })
-    for (const event of cleanupEvents) {
-      process.removeListener(event, cleanup)
-    }
-  }
 
-  function ensureStorage () {
-    return new Promise((resolve, reject) => {
-      mkdirp(storageRoot, err => {
-        if (err) return reject(err)
-        return resolve()
-      })
-    })
+
+    async function close () {
+      await this.close()
+    }
   }
 }
 
@@ -213,26 +234,10 @@ function wrap (metadata, methods, opts) {
   return wrapped
 }
 
-function createMainHandlers (server, daemon) {
-  return {
-    stop: async (call) => {
-      await daemon.close()
-      setTimeout(() => {
-        console.error('Daemon is exiting.')
-        server.forceShutdown()
-        process.exit(0)
-      }, 250)
-      return new rpc.main.messages.StopResponse()
-    },
-
-    status: async (call) => {
-      return new rpc.main.messages.StatusResponse()
-    }
-  }
-}
-
 if (require.main === module) {
-  start()
+  const opts = extractArguments()
+  const daemon = new HyperdriveDaemon(opts)
+  daemon.start()
 } else {
-  module.exports = start
+  module.exports = HyperdriveDaemon
 }

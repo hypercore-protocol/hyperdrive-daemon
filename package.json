@@ -43,10 +43,12 @@
     "ora": "^3.4.0",
     "pino": "^5.12.6",
     "prettier-bytes": "^1.0.4",
+    "pump": "^3.0.0",
     "random-access-file": "^2.1.2",
     "sodium-universal": "^2.0.0",
     "stream-collector": "^1.0.1",
     "subleveldown": "^4.0.0",
+    "through2-map": "^3.0.0",
     "yargs": "^13.2.1"
   },
   "optionalDependencies": {

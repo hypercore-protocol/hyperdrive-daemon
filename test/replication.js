@@ -115,7 +115,7 @@ test('can replicate nested mounts between daemons', async t => {
   t.end()
 })
 
-test.only('can get networking stats for multiple mounts', async t => {
+test('can get networking stats for multiple mounts', async t => {
   const { clients, cleanup } = await create(2)
   const firstClient = clients[0]
   const secondClient = clients[1]

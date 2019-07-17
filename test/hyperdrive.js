@@ -1,5 +1,6 @@
 const test = require('tape')
 
+const collectStream = require('stream-collector')
 const { createOne } = require('./util/create')
 
 test('can write/read a file from a remote hyperdrive', async t => {
@@ -38,6 +39,46 @@ test('can write/read a large file from a remote hyperdrive', async t => {
 
     const contents = await client.drive.readFile(id, 'hello')
     t.same(contents, content)
+
+    await client.drive.close(id)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test.only('can write/read a file from a remote hyperdrive using stream methods', async t => {
+  const { client, cleanup } = await createOne()
+
+  try {
+    const { opts, id } = await client.drive.get()
+    t.true(opts.key)
+    t.same(id, 1)
+
+    const writeStream = client.drive.createWriteStream(id, 'hello', { uid: 999, gid: 999 })
+    writeStream.write('hello')
+    writeStream.write('there')
+    writeStream.end('friend')
+
+    await new Promise((resolve, reject) => {
+      writeStream.on('error', reject)
+      writeStream.on('finish', resolve)
+    })
+
+    const readStream = await client.drive.createReadStream(id, 'hello', { start: 5, length: Buffer.from('there').length + 1 })
+    const content = await new Promise((resolve, reject) => {
+      collectStream(readStream, (err, bufs) => {
+        if (err) return reject(err)
+        return resolve(Buffer.concat(bufs))
+      })
+    })
+    t.same(content, Buffer.from('theref'))
+
+    const stat = await client.drive.stat(id, 'hello')
+    t.same(stat.uid, 999)
+    t.same(stat.gid, 999)
 
     await client.drive.close(id)
   } catch (err) {
@@ -212,3 +253,65 @@ test('can unmount a drive within a remote hyperdrive', async t => {
   await cleanup()
   t.end()
 })
+
+test('can watch a remote hyperdrive', async t => {
+  const { client, cleanup } = await createOne()
+
+  var triggered = 0
+
+  try {
+    const { opts, id } = await client.drive.get()
+
+    const unwatch = client.drive.watch(id, '', () => {
+      triggered++
+    })
+
+    await client.drive.writeFile(id, 'hello', 'world')
+    await unwatch()
+    await client.drive.writeFile(id, 'world', 'hello')
+
+    await client.drive.close(id)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  t.true(triggered)
+
+  console.log('before cleanup')
+  await cleanup()
+  console.log('after cleanup')
+  t.end()
+})
+
+// TODO: Important test
+test.skip('watch cleans up after unexpected close', async t => {
+  const { client, cleanup } = await createOne()
+
+  var triggered = 0
+
+  try {
+    const { opts, id } = await client.drive.get()
+
+    const unwatch = client.drive.watch(id, '', () => {
+      triggered++
+    })
+
+    await client.drive.writeFile(id, 'hello', 'world')
+    await unwatch()
+    await client.drive.writeFile(id, 'world', 'hello')
+
+    await client.drive.close(id)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  t.true(triggered)
+
+  await cleanup()
+  t.end()
+})
+
+function delay (ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+

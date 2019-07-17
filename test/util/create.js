@@ -2,7 +2,7 @@ const tmp = require('tmp-promise')
 const dht = require('@hyperswarm/dht')
 
 const loadClient = require('hyperdrive-daemon-client/lib/loader')
-const start = require('../..')
+const HyperdriveDaemon = require('../..')
 
 const BASE_PORT = 4101
 const BOOTSTRAP_PORT = 3100
@@ -51,7 +51,7 @@ async function createInstance (id, port, bootstrap) {
   const endpoint = `localhost:${port}`
   var client
 
-  const stop = await start({
+  const daemon = new HyperdriveDaemon({
     storage: path,
     bootstrap,
     port,
@@ -60,6 +60,7 @@ async function createInstance (id, port, bootstrap) {
       endpoint
     }
   })
+  await daemon.start()
 
   return new Promise((resolve, reject) => {
     return loadClient(endpoint, token, (err, c) => {
@@ -73,7 +74,7 @@ async function createInstance (id, port, bootstrap) {
   })
 
   async function cleanup () {
-    await stop()
+    await daemon.stop()
     await dirCleanup()
   }
 }
