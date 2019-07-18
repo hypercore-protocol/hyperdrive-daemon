@@ -294,6 +294,32 @@ test.skip('watch cleans up after unexpected close', async t => {
   t.end()
 })
 
+test('can create a symlink to directories', async t => {
+  const { client, cleanup } = await createOne()
+
+  try {
+    const drive = await client.drive.get()
+    await drive.mkdir('hello', { uid: 999 })
+    await drive.writeFile('hello/world', 'content')
+    await drive.symlink('hello', 'other_hello')
+    await drive.symlink('hello/world', 'other_world')
+
+    const contents = await drive.readFile('other_world')
+    t.same(contents, Buffer.from('content'))
+
+    const files = await drive.readdir('other_hello')
+    t.same(files.length, 1)
+    t.same(files[0], 'world')
+
+    await drive.close()
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 // TODO: Figure out why the grpc server is not terminating.
 test.onFinish(() => {
   setTimeout(() => {
