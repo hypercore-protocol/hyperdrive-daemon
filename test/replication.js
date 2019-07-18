@@ -8,17 +8,17 @@ test('can replicate a single drive between daemons', async t => {
   const secondClient = clients[1]
 
   try {
-    const { opts, id: id1 } = await firstClient.drive.get()
-    await firstClient.drive.publish(id1)
+    const drive1 = await firstClient.drive.get()
+    await drive1.publish()
 
-    const { id: id2 } = await secondClient.drive.get({ key: opts.key })
+    const drive2 = await secondClient.drive.get({ key: drive1.key })
 
-    await firstClient.drive.writeFile(id1, 'hello', 'world')
+    await drive1.writeFile('hello', 'world')
 
     // 100 ms delay for replication.
     await delay(100)
 
-    const replicatedContent = await secondClient.drive.readFile(id2, 'hello')
+    const replicatedContent = await drive2.readFile('hello')
     t.same(replicatedContent, Buffer.from('world'))
   } catch (err) {
     t.fail(err)
@@ -51,31 +51,31 @@ test('can replicate many mounted drives between daemons', async t => {
   t.end()
 
   async function createFirst () {
-    const { id: rootId } = await firstClient.drive.get()
+    const rootDrive = await firstClient.drive.get()
     const mounts = []
     for (let i = 0; i < NUM_MOUNTS; i++) {
       const key = '' + i
-      const { opts: mountOpts, id: mountId } = await firstClient.drive.get()
-      await firstClient.drive.mount(rootId, key, { ...mountOpts, version: null })
-      await firstClient.drive.writeFile(mountId, key, key)
-      await firstClient.drive.publish(mountId)
-      mounts.push({ key: mountOpts.key, path: key + '/' + key, content: key })
+      const mountDrive = await firstClient.drive.get()
+      await rootDrive.mount(key, { key: mountDrive.key })
+      await mountDrive.writeFile(key, key)
+      await mountDrive.publish()
+      mounts.push({ key: mountDrive.key, path: key + '/' + key, content: key })
     }
     return mounts
   }
 
   async function createSecond (mounts) {
-    const { id: rootId } = await secondClient.drive.get()
+    const rootDrive = await secondClient.drive.get()
     for (const { key, content } of mounts) {
       await secondClient.drive.get({ key })
-      await secondClient.drive.mount(rootId, content, { key })
+      await rootDrive.mount(content, { key })
     }
-    return rootId
+    return rootDrive
   }
 
-  async function validate (mounts, id) {
+  async function validate (mounts, secondRoot) {
     for (const { path, content } of mounts) {
-      const readContent = await secondClient.drive.readFile(id, path)
+      const readContent = await secondRoot.readFile(path)
       t.same(readContent, Buffer.from(content))
     }
   }
@@ -87,25 +87,25 @@ test('can replicate nested mounts between daemons', async t => {
   const secondClient = clients[1]
 
   try {
-    const { id: rootId1 } = await firstClient.drive.get()
-    const { opts: mountOpts1, id: mountId1 } = await firstClient.drive.get()
-    const { opts: mountOpts2, id: mountId2 } = await firstClient.drive.get()
-    await firstClient.drive.publish(mountId2)
+    const firstRoot = await firstClient.drive.get()
+    const firstMount1 = await firstClient.drive.get()
+    const firstMount2 = await firstClient.drive.get()
+    await firstMount2.publish()
 
-    await firstClient.drive.mount(rootId1, 'a', { ...mountOpts1, version: null })
-    await firstClient.drive.mount(mountId1, 'b', { ...mountOpts2, version: null })
+    await firstRoot.mount('a', { key: firstMount1.key })
+    await firstMount1.mount('b', { key: firstMount2.key })
 
-    await firstClient.drive.writeFile(mountId2, 'hello', 'world')
+    await firstMount2.writeFile('hello', 'world')
 
-    const { id: rootId2 } = await secondClient.drive.get()
-    await secondClient.drive.get({ key: mountOpts2.key })
+    const secondRoot = await secondClient.drive.get()
+    await secondClient.drive.get({ key: firstMount2.key })
 
-    await secondClient.drive.mount(rootId2, 'c', { ...mountOpts2, version: null })
+    await secondRoot.mount('c', { key: firstMount2.key })
 
     // 100 ms delay for replication.
     await delay(100)
 
-    const replicatedContent = await secondClient.drive.readFile(rootId2, 'c/hello')
+    const replicatedContent = await secondRoot.readFile('c/hello')
     t.same(replicatedContent, Buffer.from('world'))
   } catch (err) {
     t.fail(err)
@@ -121,15 +121,15 @@ test('can get networking stats for multiple mounts', async t => {
   const secondClient = clients[1]
 
   try {
-    const { id: rootId1 } = await firstClient.drive.get()
-    const { opts: mountOpts1 } = await firstClient.drive.get()
-    const { opts: mountOpts2, id: mountId2 } = await firstClient.drive.get()
-    await firstClient.drive.publish(mountId2)
+    const firstRoot = await firstClient.drive.get()
+    const firstMount1 = await firstClient.drive.get()
+    const firstMount2 = await firstClient.drive.get()
+    await firstMount2.publish()
 
-    await firstClient.drive.mount(rootId1, 'a', { ...mountOpts1, version: null })
-    await firstClient.drive.mount(rootId1, 'b', { ...mountOpts2, version: null })
+    await firstRoot.mount('a', { key: firstMount1.key })
+    await firstRoot.mount('b', { key: firstMount2.key })
 
-    await firstClient.drive.writeFile(mountId2, 'hello', 'world')
+    await firstMount2.writeFile('hello', 'world')
 
     const firstStats = await firstClient.drive.allStats()
     t.same(firstStats.length, 3)
@@ -138,15 +138,15 @@ test('can get networking stats for multiple mounts', async t => {
       t.same(mountStats[0].metadata.uploadedBytes, 0)
     }
 
-    const { id: rootId2 } = await secondClient.drive.get()
-    await secondClient.drive.get({ key: mountOpts2.key })
+    const secondRoot = await secondClient.drive.get()
+    await secondClient.drive.get({ key: firstMount2.key })
 
-    await secondClient.drive.mount(rootId2, 'c', { ...mountOpts2, version: null })
+    await secondRoot.mount('c', { key: firstMount2.key })
 
     // 100 ms delay for replication.
     await delay(100)
 
-    const replicatedContent = await secondClient.drive.readFile(rootId2, 'c/hello')
+    const replicatedContent = await secondRoot.readFile('c/hello')
     t.same(replicatedContent, Buffer.from('world'))
 
     const secondStats = await firstClient.drive.allStats()
@@ -154,14 +154,14 @@ test('can get networking stats for multiple mounts', async t => {
 
     var uploadedBytes = null
     for (const mountStats of secondStats) {
-      if (mountStats[0].metadata.key.equals(mountOpts2.key)) {
+      if (mountStats[0].metadata.key.equals(firstMount2.key)) {
         uploadedBytes = mountStats[0].content.uploadedBytes
         t.notEqual(uploadedBytes, 0)
       }
     }
     t.true(uploadedBytes)
 
-    const thirdStats = await firstClient.drive.stats(mountId2)
+    const thirdStats = await firstMount2.stats()
     t.same(thirdStats[0].content.uploadedBytes, uploadedBytes)
   } catch (err) {
     t.fail(err)
