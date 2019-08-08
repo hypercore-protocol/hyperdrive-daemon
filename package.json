@@ -38,7 +38,7 @@
     "google-protobuf": "^3.8.0",
     "hyperdrive": "^10.2.0",
     "hyperdrive-daemon-client": "^0.10.1",
-    "level": "^4.0.0",
+    "level": "^5.0.0",
     "mkdirp": "^0.5.1",
     "pino": "^5.12.6",
     "prettier-bytes": "^1.0.4",
