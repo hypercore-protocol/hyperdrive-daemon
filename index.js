@@ -92,7 +92,7 @@ class HyperdriveDaemon extends EventEmitter {
     this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, this.opts)
     this.fuse = hyperfuse ? new FuseManager(this.drives, dbs.fuse, this.opts) : null
     this.drives.on('error', err => this.emit('error', err))
-    this.fuse.on('error', err => this.emit('error', err))
+    if (this.fuse) this.fuse.on('error', err => this.emit('error', err))
 
     await Promise.all([
       this.drives.ready(),
