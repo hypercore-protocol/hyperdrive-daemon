@@ -11,6 +11,8 @@ test('can write/read a file from a remote hyperdrive', async t => {
     t.true(drive.key)
     t.same(drive.id, 1)
 
+    const version = await drive.version()
+
     await drive.writeFile('hello', 'world')
 
     const contents = await drive.readFile('hello')
@@ -122,11 +124,10 @@ test('can list a directory from a remote hyperdrive', async t => {
     await drive.writeFile('adios', 'amigo')
 
     const files = await drive.readdir('')
-    t.same(files.length, 4)
+    t.same(files.length, 3)
     t.notEqual(files.indexOf('hello'), -1)
     t.notEqual(files.indexOf('goodbye'), -1)
     t.notEqual(files.indexOf('adios'), -1)
-    t.notEqual(files.indexOf('.key'), -1)
 
     await drive.close()
   } catch (err) {
@@ -135,6 +136,70 @@ test('can list a directory from a remote hyperdrive', async t => {
 
   await cleanup()
   t.end()
+})
+
+test('can create a diff stream on a remote hyperdrive', async t => {
+  const { client, cleanup } = await createOne()
+
+  try {
+    const drive1 = await client.drive.get()
+    const drive2 = await client.drive.get()
+
+    await drive1.writeFile('hello', 'world')
+    const v1 = await drive1.version()
+    await drive1.writeFile('goodbye', 'dog')
+    const v2 = await drive1.version()
+    await drive1.mount('d2', { key: drive2.key })
+    const v3 = await drive1.version()
+    await drive1.unmount('d2')
+
+    const diff1 = await drive1.createDiffStream()
+    const checkout = await drive1.checkout(v2)
+    const diff2 = await checkout.createDiffStream(v1)
+    const diff3 = await drive1.createDiffStream(v3)
+
+    await validate(diff1, [
+      { type: 'put', name: 'goodbye' },
+      { type: 'put', name: 'hello' }
+    ])
+    await validate(diff2, [
+      { type: 'put', name: 'goodbye'}
+    ])
+    await validate(diff3, [
+      // TODO: The first is a false positive.
+      { type: 'put', name: 'goodbye' },
+      { type: 'unmount', name: 'd2' }
+    ])
+
+    await drive1.close()
+    await drive2.close()
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+
+  async function validate (stream, expected) {
+    return new Promise((resolve, reject) => {
+      var seen = 0
+      stream.on('end', () => {
+        t.same(seen, expected.length)
+        return resolve()
+      })
+      stream.on('error', t.fail.bind(t))
+      stream.on('data', ({ name, left, right }) => {
+        t.same(name, expected[seen].name)
+        if (left) {
+          t.same(left.type, expected[seen].left.type)
+        }
+        if (right) {
+          t.same(right.type, expected[seen].right.type)
+        }
+        seen++
+      })
+    })
+  }
 })
 
 test('can read/write multiple remote hyperdrives on one server', async t => {
@@ -310,6 +375,9 @@ test('can create a symlink to directories', async t => {
     const files = await drive.readdir('other_hello')
     t.same(files.length, 1)
     t.same(files[0], 'world')
+
+    const stat = await drive.lstat('other_world')
+    t.true(stat.isSymbolicLink())
 
     await drive.close()
   } catch (err) {

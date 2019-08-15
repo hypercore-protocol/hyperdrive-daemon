@@ -223,7 +223,7 @@ function wrap (metadata, methods, opts) {
       method(call)
         .then(rsp => {
           log.debug(tag, 'request was successful')
-          if (cb) return cb(null, rsp)
+          if (cb) process.nextTick(cb, null, rsp)
         })
         .catch(err => {
           log.error({ ...tag, error: err.toString(), stack: err.stack }, 'request failed')
