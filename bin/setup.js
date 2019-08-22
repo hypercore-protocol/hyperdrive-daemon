@@ -12,6 +12,26 @@ const chalk = require('chalk')
 
 exports.command = 'setup'
 exports.desc = 'Run a one-time configuration step for FUSE.'
+exports.builder = {
+  user: {
+    description: 'User that should own the /hyperdrive directory',
+    type: 'string',
+    default: process.geteuid(),
+    alias: 'U'
+  },
+  group: {
+    description: 'User that should own the /hyperdrive directory',
+    type: 'string',
+    default: process.getgid(),
+    alias: 'G'
+  },
+  force: {
+    description: 'Force',
+    type: 'boolean',
+    default: true,
+    alias: 'f'
+  }
+}
 exports.handler = async function (argv) {
   if (!hyperfuse) return onerror('FUSE installation failed.')
 
@@ -28,7 +48,7 @@ exports.handler = async function (argv) {
   function configureFuse (cb) {
     hyperfuse.isConfigured((err, fuseConfigured) => {
       if (err) return onerror(err)
-      if (fuseConfigured) return cb(null, 'FUSE is already configured.')
+      if (argv.force === false && fuseConfigured) return cb(null, 'FUSE is already configured.')
       return configure(cb)
     })
 
@@ -43,10 +63,10 @@ exports.handler = async function (argv) {
   function makeRootDrive (cb) {
     fs.stat('/hyperdrive', (err, stat) => {
       if (err && err.errno !== -2) return cb(new Error('Could not get the status of /hyperdrive.'))
-      if (!err && stat) return cb(null, 'The root hyperdrive directory has already been created.')
-      exec('sudo mkdir /hyperdrive', err => {
+      if (!err && argv.force === false && stat) return cb(null, 'The root hyperdrive directory has already been created.')
+      exec('sudo mkdir -p /hyperdrive', err => {
         if (err) return cb(new Error('Could not create the /hyperdrive directory.'))
-        exec(`sudo chown ${process.getuid()}:${process.getgid()} /hyperdrive`, err => {
+        exec(`sudo chown ${argv.user}:${argv.group} /hyperdrive`, err => {
           if (err) return cb(new Error('Could not change the permissions on the /hyperdrive directory.'))
           return cb(null, 'Successfully created the the root hyperdrive directory.')
         })
