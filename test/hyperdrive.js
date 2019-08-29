@@ -15,8 +15,8 @@ test('can write/read a file from a remote hyperdrive', async t => {
 
     await drive.writeFile('hello', 'world')
 
-    const contents = await drive.readFile('hello')
-    t.same(contents, Buffer.from('world'))
+    const contents = await drive.readFile('hello', { encoding: 'utf8'})
+    t.same(contents, 'world')
 
     await drive.close()
   } catch (err) {
@@ -152,11 +152,14 @@ test('can create a diff stream on a remote hyperdrive', async t => {
     await drive1.mount('d2', { key: drive2.key })
     const v3 = await drive1.version()
     await drive1.unmount('d2')
+    const v4 = await drive1.version()
 
     const diff1 = await drive1.createDiffStream()
     const checkout = await drive1.checkout(v2)
     const diff2 = await checkout.createDiffStream(v1)
     const diff3 = await drive1.createDiffStream(v3)
+    const checkout2 = await drive1.checkout(v3)
+    const diff4 = await checkout2.createDiffStream(v2)
 
     await validate(diff1, [
       { type: 'put', name: 'goodbye' },
@@ -169,6 +172,9 @@ test('can create a diff stream on a remote hyperdrive', async t => {
       // TODO: The first is a false positive.
       { type: 'put', name: 'goodbye' },
       { type: 'unmount', name: 'd2' }
+    ])
+    await validate(diff4, [
+      { type: 'mount', name: 'd2' }
     ])
 
     await drive1.close()
@@ -188,14 +194,9 @@ test('can create a diff stream on a remote hyperdrive', async t => {
         return resolve()
       })
       stream.on('error', t.fail.bind(t))
-      stream.on('data', ({ name, left, right }) => {
+      stream.on('data', ({ type, name, value }) => {
         t.same(name, expected[seen].name)
-        if (left) {
-          t.same(left.type, expected[seen].left.type)
-        }
-        if (right) {
-          t.same(right.type, expected[seen].right.type)
-        }
+        t.same(type, expected[seen].type)
         seen++
       })
     })

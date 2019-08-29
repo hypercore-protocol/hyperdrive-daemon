@@ -16,7 +16,7 @@ test('can replicate a single drive between daemons', async t => {
     await drive1.writeFile('hello', 'world')
 
     // 100 ms delay for replication.
-    await delay(100)
+    await delay(1000)
 
     const replicatedContent = await drive2.readFile('hello')
     t.same(replicatedContent, Buffer.from('world'))
@@ -26,6 +26,105 @@ test('can replicate a single drive between daemons', async t => {
 
   await cleanup()
   t.end()
+})
+
+test('can download a directory between daemons', async t => {
+  const { clients, cleanup } = await create(2)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+
+  try {
+    const drive1 = await firstClient.drive.get()
+    await drive1.publish()
+
+    const drive2 = await secondClient.drive.get({ key: drive1.key })
+
+    await drive1.writeFile('/a/1', 'hello')
+    await drive1.writeFile('/a/2', 'world')
+
+    // 100 ms delay for replication.
+    await delay(1000)
+
+    var fileStats = await drive2.fileStats('/a/1')
+    t.same(fileStats.downloadedBlocks, 0)
+
+    const handle = await drive2.download('a', { detailed: true })
+
+    await new Promise((resolve, reject) => {
+      handle.on('finish', (totals, byFile) => {
+        t.same(totals.downloadedBlocks, 2)
+        t.same(byFile.get('/a/1').downloadedBlocks, 1)
+        t.same(byFile.get('/a/2').downloadedBlocks, 1)
+        return resolve()
+      })
+      handle.on('error', reject)
+    })
+
+    fileStats = await drive2.fileStats('a/1')
+    t.same(fileStats.downloadedBlocks, 1)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test('can cancel an active download', async t => {
+  const { clients, cleanup } = await create(2)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+
+  try {
+    const drive1 = await firstClient.drive.get()
+    await drive1.publish()
+
+    const drive2 = await secondClient.drive.get({ key: drive1.key })
+
+    await writeFile(drive1, '/a/1', 100)
+    await writeFile(drive1, '/a/2', 100)
+
+    // 100 ms delay for replication.
+    await delay(1000)
+
+    var fileStats = await drive2.fileStats('/a/1')
+    t.same(fileStats.downloadedBlocks, 0)
+
+    const handle = await drive2.download('a', { detailed: true, statsInterval: 10 })
+
+    await Promise.all([
+      new Promise((resolve, reject) => {
+        handle.on('cancel', (totals, byFile) => {
+          t.true(totals.downloadedBlocks < 200)
+          t.true(byFile.get('/a/1').downloadedBlocks < 100)
+          t.true(byFile.get('/a/2').downloadedBlocks < 100)
+          return resolve()
+        })
+        handle.on('error', reject)
+      }),
+      delay(200).then(() => handle.cancel())
+    ])
+
+    fileStats = await drive2.fileStats('a/1')
+    t.true(fileStats.downloadedBlocks < 100)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+
+  async function writeFile (drive, name, numBlocks) {
+    const writeStream = drive.createWriteStream(name)
+    return new Promise((resolve, reject) => {
+      writeStream.on('finish', resolve)
+      writeStream.on('error', reject)
+      for (let i = 0; i < numBlocks; i++) {
+        writeStream.write(Buffer.alloc(1024 * 1024).fill('abcdefg'))
+      }
+      writeStream.end()
+    })
+  }
 })
 
 test('can replicate many mounted drives between daemons', async t => {
