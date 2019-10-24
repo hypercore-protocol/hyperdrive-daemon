@@ -51,6 +51,108 @@ test('can write/read a large file from a remote hyperdrive', async t => {
   t.end()
 })
 
+test('can write/read file metadata alongside a file', async t => {
+  const { client, cleanup } = await createOne()
+
+  try {
+    const drive = await client.drive.get()
+    t.true(drive.key)
+    t.same(drive.id, 1)
+
+    const version = await drive.version()
+
+    await drive.writeFile('hello', 'world', {
+      metadata: {
+        hello: Buffer.from('world')
+      }
+    })
+
+    const stat = await drive.stat('hello')
+    t.same(stat.metadata.hello, Buffer.from('world'))
+
+    await drive.close()
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test('can update file metadata', async t => {
+  const { client, cleanup } = await createOne()
+
+  try {
+    const drive = await client.drive.get()
+    t.true(drive.key)
+    t.same(drive.id, 1)
+
+    const version = await drive.version()
+
+    await drive.writeFile('hello', 'world', {
+      metadata: {
+        hello: Buffer.from('world')
+      }
+    })
+
+    var stat = await drive.stat('hello')
+    t.same(stat.metadata.hello, Buffer.from('world'))
+
+    await drive.updateMetadata('hello', {
+      hello: Buffer.from('goodbye')
+    })
+
+    stat = await drive.stat('hello')
+    t.same(stat.metadata.hello, Buffer.from('goodbye'))
+
+    await drive.close()
+  } catch (err) {
+    console.error('ERR:', err.stack)
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test.only('can delete metadata', async t => {
+  const { client, cleanup } = await createOne()
+
+  try {
+    const drive = await client.drive.get()
+    t.true(drive.key)
+    t.same(drive.id, 1)
+
+    const version = await drive.version()
+
+    await drive.writeFile('hello', 'world', {
+      metadata: {
+        'hello': Buffer.from('world'),
+        'other': Buffer.from('other')
+      }
+    })
+
+    var stat = await drive.stat('hello')
+    t.same(stat.metadata.hello, Buffer.from('world'))
+    t.same(stat.metadata.other, Buffer.from('other'))
+
+    await drive.deleteMetadata('hello', ['world'])
+
+    stat = await drive.stat('hello')
+    console.log('stat is:', stat)
+    t.false(stat.metadata.hello)
+    t.same(stat.metadata.other, Buffer.from('other'))
+
+    await drive.close()
+  } catch (err) {
+    console.error('ERR:', err.stack)
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 test('can write/read a file from a remote hyperdrive using stream methods', async t => {
   const { client, cleanup } = await createOne()
 

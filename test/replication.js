@@ -16,7 +16,7 @@ test('can replicate a single drive between daemons', async t => {
     await drive1.writeFile('hello', 'world')
 
     // 100 ms delay for replication.
-    await delay(1000)
+    await delay(100)
 
     const replicatedContent = await drive2.readFile('hello')
     t.same(replicatedContent, Buffer.from('world'))
@@ -28,7 +28,7 @@ test('can replicate a single drive between daemons', async t => {
   t.end()
 })
 
-test('can download a directory between daemons', async t => {
+test.skip('can download a directory between daemons', async t => {
   const { clients, cleanup } = await create(2)
   const firstClient = clients[0]
   const secondClient = clients[1]
@@ -42,13 +42,29 @@ test('can download a directory between daemons', async t => {
     await drive1.writeFile('/a/1', 'hello')
     await drive1.writeFile('/a/2', 'world')
 
+    var stats = await drive1.stats()
+    t.same(stats[0].content.totalBlocks, 2)
+    t.same(stats[0].content.downloadedBlocks, 2)
+
     // 100 ms delay for replication.
     await delay(1000)
+
+    stats = await drive2.stats()
+    console.log('before download, stats:', stats)
+    t.same(stats[0].content.totalBlocks, 2)
+    t.same(stats[0].content.downloadedBlocks, 0)
 
     var fileStats = await drive2.fileStats('/a/1')
     t.same(fileStats.downloadedBlocks, 0)
 
     const handle = await drive2.download('a', { detailed: true })
+
+    await delay(500)
+
+    stats = await drive2.stats()
+    console.log('after download, stats:', stats)
+    t.same(stats[0].content.totalBlocks, 2)
+    t.same(stats[0].content.downloadedBlocks, 0)
 
     await new Promise((resolve, reject) => {
       handle.on('finish', (totals, byFile) => {
@@ -70,7 +86,7 @@ test('can download a directory between daemons', async t => {
   t.end()
 })
 
-test('can cancel an active download', async t => {
+test.skip('can cancel an active download', async t => {
   const { clients, cleanup } = await create(2)
   const firstClient = clients[0]
   const secondClient = clients[1]
@@ -85,7 +101,7 @@ test('can cancel an active download', async t => {
     await writeFile(drive1, '/a/2', 100)
 
     // 100 ms delay for replication.
-    await delay(1000)
+    await delay(100)
 
     var fileStats = await drive2.fileStats('/a/1')
     t.same(fileStats.downloadedBlocks, 0)
