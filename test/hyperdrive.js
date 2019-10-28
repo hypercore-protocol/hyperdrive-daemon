@@ -115,7 +115,7 @@ test('can update file metadata', async t => {
   t.end()
 })
 
-test.only('can delete metadata', async t => {
+test('can delete metadata', async t => {
   const { client, cleanup } = await createOne()
 
   try {
@@ -127,21 +127,20 @@ test.only('can delete metadata', async t => {
 
     await drive.writeFile('hello', 'world', {
       metadata: {
-        'hello': Buffer.from('world'),
-        'other': Buffer.from('other')
+        'first': Buffer.from('first'),
+        'second': Buffer.from('second')
       }
     })
 
     var stat = await drive.stat('hello')
-    t.same(stat.metadata.hello, Buffer.from('world'))
-    t.same(stat.metadata.other, Buffer.from('other'))
+    t.same(stat.metadata.first, Buffer.from('first'))
+    t.same(stat.metadata.second, Buffer.from('second'))
 
-    await drive.deleteMetadata('hello', ['world'])
+    await drive.deleteMetadata('hello', ['first'])
 
     stat = await drive.stat('hello')
-    console.log('stat is:', stat)
-    t.false(stat.metadata.hello)
-    t.same(stat.metadata.other, Buffer.from('other'))
+    t.false(stat.metadata.first)
+    t.same(stat.metadata.second, Buffer.from('second'))
 
     await drive.close()
   } catch (err) {

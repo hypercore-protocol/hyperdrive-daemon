@@ -28,7 +28,7 @@ test('can replicate a single drive between daemons', async t => {
   t.end()
 })
 
-test.skip('can download a directory between daemons', async t => {
+test.only('can download a directory between daemons', async t => {
   const { clients, cleanup } = await create(2)
   const firstClient = clients[0]
   const secondClient = clients[1]
@@ -41,52 +41,52 @@ test.skip('can download a directory between daemons', async t => {
 
     await drive1.writeFile('/a/1', 'hello')
     await drive1.writeFile('/a/2', 'world')
+    await drive1.writeFile('/a/3', 'three')
+    await drive1.writeFile('/a/4', 'four')
+    await drive1.writeFile('/a/5', 'five')
 
     var stats = await drive1.stats()
-    t.same(stats[0].content.totalBlocks, 2)
-    t.same(stats[0].content.downloadedBlocks, 2)
+    t.same(stats[0].content.totalBlocks, 5)
+    t.same(stats[0].content.downloadedBlocks, 5)
 
     // 100 ms delay for replication.
-    await delay(1000)
+    await delay(100)
 
     stats = await drive2.stats()
     console.log('before download, stats:', stats)
-    t.same(stats[0].content.totalBlocks, 2)
+    t.same(stats[0].content.totalBlocks, 5)
     t.same(stats[0].content.downloadedBlocks, 0)
 
     var fileStats = await drive2.fileStats('/a/1')
-    t.same(fileStats.downloadedBlocks, 0)
+    t.same(fileStats.get('/a/1').downloadedBlocks, 0)
 
-    const handle = await drive2.download('a', { detailed: true })
+    const handle = await drive2.download('a')
 
-    await delay(500)
+    // 200 ms delay for download to complete.
+    await delay(200)
 
     stats = await drive2.stats()
-    console.log('after download, stats:', stats)
-    t.same(stats[0].content.totalBlocks, 2)
-    t.same(stats[0].content.downloadedBlocks, 0)
-
-    await new Promise((resolve, reject) => {
-      handle.on('finish', (totals, byFile) => {
-        t.same(totals.downloadedBlocks, 2)
-        t.same(byFile.get('/a/1').downloadedBlocks, 1)
-        t.same(byFile.get('/a/2').downloadedBlocks, 1)
-        return resolve()
-      })
-      handle.on('error', reject)
-    })
-
-    fileStats = await drive2.fileStats('a/1')
-    t.same(fileStats.downloadedBlocks, 1)
+    fileStats = await drive2.fileStats('a')
+    console.log('FILE STATS HERE:', fileStats)
+    t.same(stats[0].content.totalBlocks, 5)
+    t.same(stats[0].content.downloadedBlocks, 5)
+    t.same(fileStats.get('/a/1').downloadedBlocks, 1)
+    t.same(fileStats.get('/a/2').downloadedBlocks, 1)
+    t.same(fileStats.get('/a/3').downloadedBlocks, 1)
+    t.same(fileStats.get('/a/4').downloadedBlocks, 1)
+    t.same(fileStats.get('/a/5').downloadedBlocks, 1)
   } catch (err) {
+    console.log('here before fail')
     t.fail(err)
   }
 
+  console.log('cleaning up here')
   await cleanup()
+  console.log('after cleanup')
   t.end()
 })
 
-test.skip('can cancel an active download', async t => {
+test('can cancel an active download', async t => {
   const { clients, cleanup } = await create(2)
   const firstClient = clients[0]
   const secondClient = clients[1]

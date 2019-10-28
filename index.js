@@ -5,13 +5,14 @@ const raf = require('random-access-file')
 const level = require('level')
 const sub = require('subleveldown')
 const grpc = require('@grpc/grpc-js')
-const corestore = require('corestore')
+const Corestore = require('corestore')
 const SwarmNetworker = require('corestore-swarm-networking')
 
 const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
 const DriveManager = require('./lib/drives')
+const ProfilesManager = require('./lib/profiles')
 const { serverError } = require('./lib/errors')
 
 try {
@@ -38,9 +39,7 @@ class HyperdriveDaemon extends EventEmitter {
       // Collect networking statistics.
       stats: true
     }
-    this.corestore = corestore(corestoreOpts.storage, corestoreOpts)
-    // The root corestore should be bootstrapped with an empty default feed.
-    this.corestore.default()
+    this.corestore = new Corestore(corestoreOpts.storage, corestoreOpts)
 
     const bootstrapOpts = opts.bootstrap || constants.bootstrap
     if (bootstrapOpts && bootstrapOpts.length && bootstrapOpts[0] !== '') {
@@ -87,9 +86,11 @@ class HyperdriveDaemon extends EventEmitter {
     this.db = level(`${this.storage}/db`, { valueEncoding: 'json' })
     const dbs = {
       fuse: sub(this.db, 'fuse', { valueEncoding: 'json' }),
-      drives: sub(this.db, 'drives', { valueEncoding: 'json' })
+      drives: sub(this.db, 'drives', { valueEncoding: 'json' }),
+      profiles: sub(this.db, 'profiles', { valueEncoding: 'json' })
     }
     this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, this.opts)
+    //this.profiles = new ProfilesManager(this.drives, this.opts)
     this.fuse = hyperfuse ? new FuseManager(this.drives, dbs.fuse, this.opts) : null
     this.drives.on('error', err => this.emit('error', err))
     if (this.fuse) this.fuse.on('error', err => this.emit('error', err))
