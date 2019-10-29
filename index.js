@@ -49,6 +49,10 @@ class HyperdriveDaemon extends EventEmitter {
         networkOpts = { bootstrap: bootstrapOpts }
       }
     }
+
+    // TODO: Remove when channel deduping is in place.
+    networkOpts.maxPeers = 500
+
     this.networking = new SwarmNetworker(this.corestore, networkOpts)
 
     // Set in ready.
