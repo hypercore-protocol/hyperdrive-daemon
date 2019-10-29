@@ -53,7 +53,6 @@ test('can download a directory between daemons', async t => {
     await delay(100)
 
     stats = await drive2.stats()
-    console.log('before download, stats:', stats)
     t.same(stats[0].content.totalBlocks, 5)
 
     // TODO: Uncomment after hypercore bug fix.
@@ -71,7 +70,6 @@ test('can download a directory between daemons', async t => {
 
     stats = await drive2.stats()
     fileStats = await drive2.fileStats('a')
-    console.log('FILE STATS HERE:', fileStats)
     t.same(stats[0].content.totalBlocks, 5)
     t.same(stats[0].content.downloadedBlocks, 5)
     t.same(fileStats.get('/a/1').downloadedBlocks, 1)
@@ -80,13 +78,10 @@ test('can download a directory between daemons', async t => {
     t.same(fileStats.get('/a/4').downloadedBlocks, 1)
     t.same(fileStats.get('/a/5').downloadedBlocks, 1)
   } catch (err) {
-    console.log('here before fail')
     t.fail(err)
   }
 
-  console.log('cleaning up here')
   await cleanup()
-  console.log('after cleanup')
   t.end()
 })
 
@@ -146,7 +141,7 @@ test('can replicate many mounted drives between daemons', async t => {
   const firstClient = clients[0]
   const secondClient = clients[1]
 
-  const NUM_MOUNTS = 50
+  const NUM_MOUNTS = 20
 
   try {
     const mounts = await createFirst()
