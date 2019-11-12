@@ -40,7 +40,7 @@ class HyperdriveDaemon extends EventEmitter {
     }
     this.corestore = new Corestore(corestoreOpts.storage, corestoreOpts)
 
-    var networkOpts = {}
+    const networkOpts = {}
     const bootstrapOpts = opts.bootstrap || constants.bootstrap
 
     if (bootstrapOpts && bootstrapOpts.length && bootstrapOpts[0] !== '') {
