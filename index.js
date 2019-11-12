@@ -12,7 +12,6 @@ const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
 const DriveManager = require('./lib/drives')
-const ProfilesManager = require('./lib/profiles')
 const { serverError } = require('./lib/errors')
 
 try {
@@ -41,18 +40,17 @@ class HyperdriveDaemon extends EventEmitter {
     }
     this.corestore = new Corestore(corestoreOpts.storage, corestoreOpts)
 
+    var networkOpts = {}
     const bootstrapOpts = opts.bootstrap || constants.bootstrap
+
     if (bootstrapOpts && bootstrapOpts.length && bootstrapOpts[0] !== '') {
       if (bootstrapOpts === false && bootstrapOpts[0] === 'false') {
-        var networkOpts = { bootstrap: false }
+        networkOpts.bootstrap = false
       } else {
-        networkOpts = { bootstrap: bootstrapOpts }
+        networkOpts.bootstrap = bootstrapOpts
       }
     }
-
-    // TODO: Remove when channel deduping is in place.
-    networkOpts.maxPeers = 500
-
+    networkOpts.maxPeers = opts.maxPeers || constants.maxPeers
     this.networking = new SwarmNetworker(this.corestore, networkOpts)
 
     // Set in ready.
