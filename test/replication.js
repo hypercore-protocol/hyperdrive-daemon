@@ -137,15 +137,22 @@ test('can cancel an active download', async t => {
 })
 
 test('can replicate many mounted drives between daemons', async t => {
-  const { clients, cleanup } = await create(2)
+  const { clients, daemons, cleanup } = await create(2)
   const firstClient = clients[0]
   const secondClient = clients[1]
+  const secondDaemon = daemons[1]
 
-  const NUM_MOUNTS = 20
+  const NUM_MOUNTS = 50
 
   try {
     const mounts = await createFirst()
+    console.log('Creating the second drive...')
+    //await delay(3000)
+    console.time('create-second')
     const second = await createSecond(mounts)
+    console.timeEnd('create-second')
+    console.log('Validating...')
+    console.log('Number of Replication Streams:', secondDaemon.networking._replicationStreams.size)
     await validate(mounts, second)
   } catch (err) {
     t.fail(err)
@@ -171,17 +178,20 @@ test('can replicate many mounted drives between daemons', async t => {
   async function createSecond (mounts) {
     const rootDrive = await secondClient.drive.get()
     for (const { key, content } of mounts) {
+      console.time('get')
       await secondClient.drive.get({ key })
+      console.timeEnd('get')
+      console.time('mount')
       await rootDrive.mount(content, { key })
+      console.timeEnd('mount')
     }
     return rootDrive
   }
 
   async function validate (mounts, secondRoot) {
-    const files = await secondRoot.readdir('/')
-    for (const { path, content } of mounts) {
-      const readContent = await secondRoot.readFile(path)
-      t.same(readContent, Buffer.from(content))
+    const contents = await Promise.all(mounts.map(({ path, content }) => secondRoot.readFile(path)))
+    for (let i = 0; i < mounts.length; i++) {
+      t.same(contents[i], Buffer.from(mounts[i].content))
     }
   }
 })
