@@ -107,7 +107,6 @@ test('can update file metadata', async t => {
 
     await drive.close()
   } catch (err) {
-    console.error('ERR:', err.stack)
     t.fail(err)
   }
 
@@ -144,7 +143,6 @@ test('can delete metadata', async t => {
 
     await drive.close()
   } catch (err) {
-    console.error('ERR:', err.stack)
     t.fail(err)
   }
 
@@ -508,6 +506,29 @@ test('drives are closed when all corresponding sessions are closed', async t => 
     t.same(daemon.drives._drives.size, 2)
     await checkout1.close()
     t.same(daemon.drives._drives.size, 0)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test('drives are writable after a daemon restart', async t => {
+  var { dir, client, cleanup } = await createOne()
+
+  try {
+    var drive = await client.drive.get()
+    const driveKey = drive.key
+    await drive.writeFile('a', 'a')
+
+    await cleanup({ persist: true })
+
+    var { client, cleanup } = await createOne({ dir })
+    drive = await client.drive.get({ key: driveKey })
+    t.same(await drive.readFile('a'), Buffer.from('a'))
+    await drive.writeFile('b', 'b')
+    t.same(await drive.readFile('b'), Buffer.from('b'))
   } catch (err) {
     t.fail(err)
   }
