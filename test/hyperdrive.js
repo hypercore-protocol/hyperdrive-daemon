@@ -419,7 +419,9 @@ test('can watch a remote hyperdrive', async t => {
     })
 
     await drive.writeFile('hello', 'world')
+    await delay(20)
     await unwatch()
+    await delay(20)
     await drive.writeFile('world', 'hello')
 
     await drive.close()
@@ -427,37 +429,36 @@ test('can watch a remote hyperdrive', async t => {
     t.fail(err)
   }
 
-  t.true(triggered)
+  t.same(triggered, 1)
 
   await cleanup()
   t.end()
 })
 
-// TODO: Important test
-test.skip('watch cleans up after unexpected close', async t => {
-  const { client, cleanup } = await createOne()
+test.only('watch cleans up after unexpected close', async t => {
+  const { client, cleanup, daemon } = await createOne()
 
   var triggered = 0
 
   try {
-    const { id } = await client.drive.get()
+    const drive = await client.drive.get()
 
-    const unwatch = client.drive.watch(id, '', () => {
+    const unwatch = drive.watch('', () => {
       triggered++
     })
 
-    await client.drive.writeFile(id, 'hello', 'world')
-    await unwatch()
-    await client.drive.writeFile(id, 'world', 'hello')
-
-    await client.drive.close(id)
+    await drive.writeFile('hello', 'world')
+    await delay(10)
+    t.same(daemon.drives._watchCount, 1)
+    await cleanup()
   } catch (err) {
     t.fail(err)
   }
 
-  t.true(triggered)
+  t.same(triggered, 1)
+  t.same(daemon.drives._watchers.size, 0)
+  t.same(daemon.drives._watchCount, 0)
 
-  await cleanup()
   t.end()
 })
 
@@ -496,3 +497,7 @@ test.onFinish(() => {
     process.exit(0)
   }, 100)
 })
+
+function delay (ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}

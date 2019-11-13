@@ -23,6 +23,8 @@ try {
 const log = require('./lib/log').child({ component: 'server' })
 
 const STOP_EVENTS = ['SIGINT', 'SIGTERM', 'unhandledRejection', 'uncaughtException']
+const WATCH_LIMIT = 300
+const MAX_PEERS = 128
 
 class HyperdriveDaemon extends EventEmitter {
   constructor (opts = {}) {
@@ -50,7 +52,7 @@ class HyperdriveDaemon extends EventEmitter {
         networkOpts.bootstrap = bootstrapOpts
       }
     }
-    networkOpts.maxPeers = opts.maxPeers || constants.maxPeers
+    networkOpts.maxPeers = opts.maxPeers || MAX_PEERS
     this.networking = new SwarmNetworker(this.corestore, networkOpts)
 
     // Set in ready.
@@ -91,7 +93,11 @@ class HyperdriveDaemon extends EventEmitter {
       drives: sub(this.db, 'drives', { valueEncoding: 'json' }),
       profiles: sub(this.db, 'profiles', { valueEncoding: 'json' })
     }
-    this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, this.opts)
+
+    this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, {
+      ...this.opts,
+      watchLimit: this.opts.watchLimit || WATCH_LIMIT
+    })
     //this.profiles = new ProfilesManager(this.drives, this.opts)
     this.fuse = hyperfuse ? new FuseManager(this.drives, dbs.fuse, this.opts) : null
     this.drives.on('error', err => this.emit('error', err))
