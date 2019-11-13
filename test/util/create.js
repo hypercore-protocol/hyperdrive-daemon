@@ -8,10 +8,11 @@ const BASE_PORT = 4101
 const BOOTSTRAP_PORT = 3100
 const BOOTSTRAP_URL = `localhost:${BOOTSTRAP_PORT}`
 
-async function create (numServers) {
+async function create (numServers, opts) {
   const cleanups = []
   const clients = []
   const daemons = []
+  const dirs = []
 
   const bootstrapper = dht({
     bootstrap: false
@@ -22,33 +23,36 @@ async function create (numServers) {
   })
 
   for (let i = 0; i < numServers; i++) {
-    const { client, daemon, cleanup } = await createInstance(i, BASE_PORT + i, [BOOTSTRAP_URL])
+    const { client, daemon, cleanup, dir } = await createInstance(i, BASE_PORT + i, [BOOTSTRAP_URL], opts)
     clients.push(client)
     daemons.push(daemon)
     cleanups.push(cleanup)
+    dirs.push(dir)
   }
 
-  return { clients, daemons, cleanup }
+  return { clients, daemons, cleanup, dirs }
 
-  async function cleanup () {
+  async function cleanup (opts) {
     for (let cleanupInstance of cleanups) {
-      await cleanupInstance()
+      await cleanupInstance(opts)
     }
     await bootstrapper.destroy()
   }
 }
 
-async function createOne () {
-  const { clients, cleanup, daemons } = await create(1)
+async function createOne (opts) {
+  const { dirs, clients, cleanup, daemons } = await create(1, opts)
   return {
+    dir: dirs[0],
     client: clients[0],
     daemon: daemons[0],
     cleanup
   }
 }
 
-async function createInstance (id, port, bootstrap) {
-  const { path, cleanup: dirCleanup } = await tmp.dir({ unsafeCleanup: true })
+async function createInstance (id, port, bootstrap, opts = {}) {
+  const dir = opts.dir || await tmp.dir({ unsafeCleanup: true })
+  const { path, cleanup: dirCleanup } = dir
 
   const token = `test-token-${id}`
   const endpoint = `localhost:${port}`
@@ -70,6 +74,7 @@ async function createInstance (id, port, bootstrap) {
       client = c
       if (err) return reject(err)
       return resolve({
+        dir,
         client,
         daemon,
         cleanup
@@ -77,9 +82,9 @@ async function createInstance (id, port, bootstrap) {
     })
   })
 
-  async function cleanup () {
+  async function cleanup (opts = {}) {
     await daemon.stop()
-    await dirCleanup()
+    if (!opts.persist) await dirCleanup()
   }
 }
 
