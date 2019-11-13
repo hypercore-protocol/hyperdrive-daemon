@@ -142,17 +142,11 @@ test('can replicate many mounted drives between daemons', async t => {
   const secondClient = clients[1]
   const secondDaemon = daemons[1]
 
-  const NUM_MOUNTS = 50
+  const NUM_MOUNTS = 20
 
   try {
     const mounts = await createFirst()
-    console.log('Creating the second drive...')
-    //await delay(3000)
-    console.time('create-second')
     const second = await createSecond(mounts)
-    console.timeEnd('create-second')
-    console.log('Validating...')
-    console.log('Number of Replication Streams:', secondDaemon.networking._replicationStreams.size)
     await validate(mounts, second)
   } catch (err) {
     t.fail(err)
@@ -178,12 +172,8 @@ test('can replicate many mounted drives between daemons', async t => {
   async function createSecond (mounts) {
     const rootDrive = await secondClient.drive.get()
     for (const { key, content } of mounts) {
-      console.time('get')
       await secondClient.drive.get({ key })
-      console.timeEnd('get')
-      console.time('mount')
       await rootDrive.mount(content, { key })
-      console.timeEnd('mount')
     }
     return rootDrive
   }

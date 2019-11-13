@@ -435,7 +435,7 @@ test('can watch a remote hyperdrive', async t => {
   t.end()
 })
 
-test.only('watch cleans up after unexpected close', async t => {
+test('watch cleans up after unexpected close', async t => {
   const { client, cleanup, daemon } = await createOne()
 
   var triggered = 0
@@ -483,6 +483,31 @@ test('can create a symlink to directories', async t => {
     t.true(stat.isSymbolicLink())
 
     await drive.close()
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test('drives are closed when all corresponding sessions are closed', async t => {
+  const { client, cleanup, daemon } = await createOne()
+
+  try {
+    const drive = await client.drive.get()
+    await drive.writeFile('a', 'a')
+    await drive.writeFile('b', 'b')
+    await drive.writeFile('c', 'c')
+    const otherDrive = await client.drive.get({ key: drive.key })
+    const checkout1 = await client.drive.get({ key: drive.key, version: 1 })
+
+    await drive.close()
+    t.same(daemon.drives._drives.size, 2)
+    await otherDrive.close()
+    t.same(daemon.drives._drives.size, 2)
+    await checkout1.close()
+    t.same(daemon.drives._drives.size, 0)
   } catch (err) {
     t.fail(err)
   }
