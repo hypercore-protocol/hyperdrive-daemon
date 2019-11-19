@@ -9,6 +9,7 @@ const Corestore = require('corestore')
 const SwarmNetworker = require('corestore-swarm-networking')
 
 const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
+const { createMetadata } = require('./lib/metadata')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
 const DriveManager = require('./lib/drives')
@@ -113,8 +114,8 @@ class HyperdriveDaemon extends EventEmitter {
 
   async _loadMetadata () {
     this.metadata = this.opts.metadata || await new Promise((resolve, reject) => {
-      loadMetadata((err, metadata) => {
-        if (err) return reject(err)
+      loadMetadata(async (err, metadata) => {
+        if (err) metadata = await createMetadata(`localhost:${this.port}`)
         return resolve(metadata)
       })
     })
