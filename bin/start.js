@@ -3,7 +3,6 @@ const p = require('path')
 const chalk = require('chalk')
 const forever = require('forever')
 
-const { createMetadata } = require('../lib/metadata')
 const { HyperdriveClient } = require('hyperdrive-daemon-client')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
@@ -52,7 +51,6 @@ exports.handler = async function (argv) {
 
 async function start (argv) {
   let endpoint = `localhost:${argv.port}`
-  await createMetadata(endpoint)
   forever.startDaemon(p.join(__dirname, '..', 'index.js'), {
     uid: constants.uid,
     max: 1,
