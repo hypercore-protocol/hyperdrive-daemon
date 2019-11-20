@@ -2,6 +2,8 @@ const p = require('path')
 const fs = require('fs')
 const { exec } = require('child_process')
 
+const constants = require('hyperdrive-daemon-client/lib/constants')
+
 try {
   var hyperfuse = require('hyperdrive-fuse')
 } catch (err) {
@@ -14,13 +16,13 @@ exports.command = 'setup'
 exports.desc = 'Run a one-time configuration step for FUSE.'
 exports.builder = {
   user: {
-    description: 'User that should own the /hyperdrive directory',
+    description: `User that should own the ${constants.mountpoint} directory`,
     type: 'string',
     default: process.geteuid(),
     alias: 'U'
   },
   group: {
-    description: 'User that should own the /hyperdrive directory',
+    description: 'User that should own the ${constants.mountpoint} directory',
     type: 'string',
     default: process.getgid(),
     alias: 'G'
@@ -61,13 +63,13 @@ exports.handler = async function (argv) {
   }
 
   function makeRootDrive (cb) {
-    fs.stat('/hyperdrive', (err, stat) => {
-      if (err && err.errno !== -2) return cb(new Error('Could not get the status of /hyperdrive.'))
+    fs.stat(constants.mountpoint, (err, stat) => {
+      if (err && err.errno !== -2) return cb(new Error(`Could not get the status of ${constants.mountpoint}.`))
       if (!err && argv.force === false && stat) return cb(null, 'The root hyperdrive directory has already been created.')
-      exec('sudo mkdir -p /hyperdrive', err => {
-        if (err) return cb(new Error('Could not create the /hyperdrive directory.'))
-        exec(`sudo chown ${argv.user}:${argv.group} /hyperdrive`, err => {
-          if (err) return cb(new Error('Could not change the permissions on the /hyperdrive directory.'))
+      exec(`sudo mkdir -p ${constants.mountpoint}`, err => {
+        if (err) return cb(new Error(`Could not create the ${constants.mountpoint} directory.`))
+        exec(`sudo chown ${argv.user}:${argv.group} ${constants.mountpoint}`, err => {
+          if (err) return cb(new Error(`Could not change the permissions on the ${constants.mountpoint} directory.`))
           return cb(null, 'Successfully created the the root hyperdrive directory.')
         })
       })
