@@ -2,6 +2,7 @@ const p = require('path')
 
 const chalk = require('chalk')
 const forever = require('forever')
+const mkdirp = require('mkdirp')
 
 const { HyperdriveClient } = require('hyperdrive-daemon-client')
 const constants = require('hyperdrive-daemon-client/lib/constants')
@@ -51,13 +52,19 @@ exports.handler = async function (argv) {
 
 async function start (argv) {
   let endpoint = `localhost:${argv.port}`
-  forever.startDaemon(p.join(__dirname, '..', 'index.js'), {
-    uid: constants.uid,
-    max: 1,
-    logFile: constants.unstructuredLog,
-    outFile: constants.unstructuredLog,
-    errFile: constants.unstructuredLog,
-    args: ['--port', argv.port, '--storage', argv.storage, '--log-level', argv['log-level'], '--bootstrap', argv.bootstrap.join(',')]
+  mkdirp(constants.root, err => {
+    if (err) {
+      console.error(chalk.red(`Could not create storage directory: ${constants.root}`))
+      return
+    }
+    forever.startDaemon(p.join(__dirname, '..', 'index.js'), {
+      uid: constants.uid,
+      max: 1,
+      logFile: constants.unstructuredLog,
+      outFile: constants.unstructuredLog,
+      errFile: constants.unstructuredLog,
+      args: ['--port', argv.port, '--storage', argv.storage, '--log-level', argv['log-level'], '--bootstrap', argv.bootstrap.join(',')]
+    })
+    console.log(chalk.green(`Daemon started at ${endpoint}`))
   })
-  console.log(chalk.green(`Daemon started at ${endpoint}`))
 }
