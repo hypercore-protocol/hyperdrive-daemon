@@ -37,7 +37,7 @@
     "fs-extra": "^7.0.1",
     "google-protobuf": "^3.8.0",
     "hyperdrive": "git+https://github.com/mafintosh/hyperdrive#hypercore-8",
-    "hyperdrive-daemon-client": "^0.15.0",
+    "hyperdrive-daemon-client": "^0.16.0",
     "level": "^5.0.0",
     "mkdirp": "^0.5.1",
     "pino": "^5.12.6",
