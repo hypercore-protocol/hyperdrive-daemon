@@ -102,12 +102,14 @@ class HyperdriveDaemon extends EventEmitter {
     this.drives.on('error', err => this.emit('error', err))
     if (this.fuse) this.fuse.on('error', err => this.emit('error', err))
 
+    await this.corestore.ready()
+    this.networking.listen()
+
     await Promise.all([
       this.drives.ready(),
       this.fuse ? this.fuse.ready() : Promise.resolve(),
     ])
 
-    this.networking.listen()
     this._isReady = true
   }
 
