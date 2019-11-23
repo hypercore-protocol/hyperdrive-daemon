@@ -105,9 +105,9 @@ class HyperdriveDaemon extends EventEmitter {
     await Promise.all([
       this.drives.ready(),
       this.fuse ? this.fuse.ready() : Promise.resolve(),
-      this.networking.listen()
     ])
 
+    this.networking.listen()
     this._isReady = true
   }
 
