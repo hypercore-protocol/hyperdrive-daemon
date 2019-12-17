@@ -2,6 +2,8 @@ const p = require('path')
 const fs = require('fs')
 const { exec } = require('child_process')
 
+const mkdirp = require('mkdirp')
+
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
 try {
@@ -24,13 +26,13 @@ exports.builder = {
   group: {
     description: 'User that should own the ${constants.mountpoint} directory',
     type: 'string',
-    default: process.getgid(),
+    default: process.getegid(),
     alias: 'G'
   },
   force: {
     description: 'Force',
     type: 'boolean',
-    default: true,
+    default: false,
     alias: 'f'
   }
 }
@@ -66,11 +68,14 @@ exports.handler = async function (argv) {
     fs.stat(constants.mountpoint, (err, stat) => {
       if (err && err.errno !== -2) return cb(new Error(`Could not get the status of ${constants.mountpoint}.`))
       if (!err && argv.force === false && stat) return cb(null, 'The root hyperdrive directory has already been created.')
-      exec(`sudo mkdir -p ${constants.mountpoint}`, err => {
-        if (err) return cb(new Error(`Could not create the ${constants.mountpoint} directory.`))
-        exec(`sudo chown ${argv.user}:${argv.group} ${constants.mountpoint}`, err => {
-          if (err) return cb(new Error(`Could not change the permissions on the ${constants.mountpoint} directory.`))
-          return cb(null, 'Successfully created the the root hyperdrive directory.')
+      mkdirp(constants.hiddenMountpoint, err => {
+        if (err) return cb(new Error(`Could not create the ${constants.hiddenMountpoint} directory.`))
+        mkdirp(constants.mountpoint, err => {
+          if (err) return cb(new Error(`Could not create the ${constants.mountpoint} directory.`))
+          fs.symlink(constants.hiddenMountpoint, constants.mountpoint, err => {
+            if (err) return cb(new Error(`Could not symlink ${constants.mountpoint} to ${constants.hiddenMountpoint}.`))
+            return cb(null, 'Successfully created the root Hyperdrive directory.')
+          })
         })
       })
     })
