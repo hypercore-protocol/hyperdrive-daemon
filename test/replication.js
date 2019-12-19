@@ -138,6 +138,7 @@ test('can cancel an active download', async t => {
 
 test('can replicate many mounted drives between daemons', async t => {
   const { clients, daemons, cleanup } = await create(2)
+  console.time('many-mounts')
   const firstClient = clients[0]
   const secondClient = clients[1]
   const secondDaemon = daemons[1]
@@ -153,6 +154,7 @@ test('can replicate many mounted drives between daemons', async t => {
   }
 
   await cleanup()
+  console.timeEnd('many-mounts')
   t.end()
 
   async function createFirst () {

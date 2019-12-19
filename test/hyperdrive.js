@@ -190,6 +190,36 @@ test('can write/read a file from a remote hyperdrive using stream methods', asyn
   t.end()
 })
 
+test('reading an invalid file propogates error', async t => {
+  const { client, cleanup } = await createOne()
+
+  try {
+    const drive = await client.drive.get()
+    t.true(drive.key)
+    t.same(drive.id, 1)
+
+    try {
+      const readStream = await drive.createReadStream('hello', { start: 5, length: Buffer.from('there').length + 1 })
+      const content = await new Promise((resolve, reject) => {
+        collectStream(readStream, (err, bufs) => {
+          if (err) return reject(err)
+          return resolve(Buffer.concat(bufs))
+        })
+      })
+      t.fail('read stream did not throw error')
+    } catch (err) {
+      t.pass('read stream threw error')
+    }
+
+    await drive.close()
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 test('can stat a file from a remote hyperdrive', async t => {
   const { client, cleanup } = await createOne()
 
