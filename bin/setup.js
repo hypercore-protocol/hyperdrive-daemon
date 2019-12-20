@@ -70,12 +70,9 @@ exports.handler = async function (argv) {
       if (!err && argv.force === false && stat) return cb(null, 'The root hyperdrive directory has already been created.')
       mkdirp(constants.hiddenMountpoint, err => {
         if (err) return cb(new Error(`Could not create the ${constants.hiddenMountpoint} directory.`))
-        mkdirp(constants.mountpoint, err => {
-          if (err) return cb(new Error(`Could not create the ${constants.mountpoint} directory.`))
-          fs.symlink(constants.hiddenMountpoint, constants.mountpoint, err => {
-            if (err) return cb(new Error(`Could not symlink ${constants.mountpoint} to ${constants.hiddenMountpoint}.`))
-            return cb(null, 'Successfully created the root Hyperdrive directory.')
-          })
+        fs.symlink(constants.hiddenMountpoint, constants.mountpoint, err => {
+          if (err) return cb(new Error(`Could not symlink ${constants.mountpoint} to ${constants.hiddenMountpoint}.`))
+          return cb(null, 'Successfully created the root Hyperdrive directory.')
         })
       })
     })

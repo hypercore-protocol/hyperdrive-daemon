@@ -1,7 +1,8 @@
 const p = require('path')
 
+const ora = require('ora')
 const chalk = require('chalk')
-const forever = require('forever')
+const pm2 = require('pm2')
 const mkdirp = require('mkdirp')
 
 const { HyperdriveClient } = require('hyperdrive-daemon-client')
@@ -52,19 +53,32 @@ exports.handler = async function (argv) {
 
 async function start (argv) {
   let endpoint = `localhost:${argv.port}`
+  let spinner = ora(chalk.blue('Starting the Hyperdrive daemon...')).start()
   mkdirp(constants.root, err => {
-    if (err) {
-      console.error(chalk.red(`Could not create storage directory: ${constants.root}`))
-      return
-    }
-    forever.startDaemon(p.join(__dirname, '..', 'index.js'), {
-      uid: constants.uid,
-      max: 1,
-      logFile: constants.unstructuredLog,
-      outFile: constants.unstructuredLog,
-      errFile: constants.unstructuredLog,
-      args: ['--port', argv.port, '--storage', argv.storage, '--log-level', argv['log-level'], '--bootstrap', argv.bootstrap.join(',')]
+    if (err) return onerror(`Could not create storage directory: ${constants.root}`)
+    pm2.connect(err => {
+      if (err) return onerror('Could not connect to the process manager to start the daemon.')
+      pm2.start({
+        script: p.join(__dirname, '..', 'index.js'),
+        name: 'hyperdrive',
+        autorestart: false,
+        output: constants.unstructuredLog,
+        error: constants.unstructuredLog,
+        args: ['--port', argv.port, '--storage', argv.storage, '--log-level', argv['log-level'], '--bootstrap', argv.bootstrap.join(',')],
+        interpreterArgs: '--max-old-space-size=4096'
+      }, err => {
+        pm2.disconnect()
+        if (err) return onerror(`The daemon did not start successfully: ${err}`)
+        return onsuccess()
+      })
     })
-    console.log(chalk.green(`Daemon started at ${endpoint}`))
   })
+
+  function onerror (err) {
+    spinner.fail(chalk.red(err))
+  }
+
+  function onsuccess () {
+    spinner.succeed(chalk.green(`Hyperdrive daemon listening on ${endpoint}`))
+  }
 }
