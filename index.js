@@ -5,6 +5,7 @@ const raf = require('random-access-file')
 const level = require('level')
 const sub = require('subleveldown')
 const grpc = require('@grpc/grpc-js')
+const bjson = require('buffer-json-encoding')
 const Corestore = require('corestore')
 const SwarmNetworker = require('corestore-swarm-networking')
 
@@ -88,8 +89,8 @@ class HyperdriveDaemon extends EventEmitter {
 
     this.db = level(`${this.storage}/db`, { valueEncoding: 'json' })
     const dbs = {
-      fuse: sub(this.db, 'fuse', { valueEncoding: 'json' }),
-      drives: sub(this.db, 'drives', { valueEncoding: 'json' }),
+      fuse: sub(this.db, 'fuse', { valueEncoding: bjson }),
+      drives: sub(this.db, 'drives', { valueEncoding: bjson }),
       profiles: sub(this.db, 'profiles', { valueEncoding: 'json' })
     }
 
