@@ -267,6 +267,62 @@ test('can list a directory from a remote hyperdrive', async t => {
   t.end()
 })
 
+test('can list a directory from a remote hyperdrive with stats', async t => {
+  const { client, cleanup } = await createOne()
+
+  try {
+    const drive = await client.drive.get()
+
+    await drive.writeFile('hello', 'world')
+    await drive.writeFile('goodbye', 'dog')
+    await drive.writeFile('adios', 'amigo')
+
+    const { names, stats } = await drive.readdir('', { includeStats: true })
+    t.same(names.length, 3)
+    t.same(stats.length, 3)
+    t.notEqual(names.indexOf('hello'), -1)
+    t.notEqual(names.indexOf('goodbye'), -1)
+    t.notEqual(names.indexOf('adios'), -1)
+    for (let stat of stats) {
+      t.same(stat.mode, 33188)
+    }
+
+    await drive.close()
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test.only('can list a large directory from a remote hyperdrive with stats', async t => {
+  const { client, cleanup } = await createOne()
+  const NUM_FILES = 10000
+
+  try {
+    const drive = await client.drive.get()
+
+    const proms = []
+    for (let i = 0; i < NUM_FILES; i++) {
+      proms.push(drive.writeFile(String(i), String(i)))
+    }
+    await Promise.all(proms)
+
+    const { names, stats } = await drive.readdir('', { includeStats: true })
+    t.same(names.length, NUM_FILES)
+    t.same(stats.length, NUM_FILES)
+
+    await drive.close()
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+
 test('can create a diff stream on a remote hyperdrive', async t => {
   const { client, cleanup } = await createOne()
 
