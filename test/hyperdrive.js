@@ -276,15 +276,15 @@ test('can list a directory from a remote hyperdrive with stats', async t => {
     await drive.writeFile('hello', 'world')
     await drive.writeFile('goodbye', 'dog')
     await drive.writeFile('adios', 'amigo')
+    const expected = new Set(['hello', 'goodbye', 'adios'])
 
-    const { names, stats } = await drive.readdir('', { includeStats: true })
-    t.same(names.length, 3)
-    t.same(stats.length, 3)
-    t.notEqual(names.indexOf('hello'), -1)
-    t.notEqual(names.indexOf('goodbye'), -1)
-    t.notEqual(names.indexOf('adios'), -1)
-    for (let stat of stats) {
+    const objs = await drive.readdir('', { includeStats: true })
+    t.same(objs.length, 3)
+    for (let { name, stat, mount } of objs) {
+      t.true(expected.has(name))
       t.same(stat.mode, 33188)
+      t.true(mount.key.equals(drive.key))
+      expected.delete(name)
     }
 
     await drive.close()
@@ -296,22 +296,32 @@ test('can list a directory from a remote hyperdrive with stats', async t => {
   t.end()
 })
 
-test.only('can list a large directory from a remote hyperdrive with stats', async t => {
+test('can list a large directory from a remote hyperdrive with stats', async t => {
   const { client, cleanup } = await createOne()
   const NUM_FILES = 10000
+  const PARALLEL_WRITE = true
 
   try {
     const drive = await client.drive.get()
 
     const proms = []
     for (let i = 0; i < NUM_FILES; i++) {
-      proms.push(drive.writeFile(String(i), String(i)))
+      const prom = drive.writeFile(String(i), String(i))
+      if (PARALLEL_WRITE) proms.push(prom)
+      else await prom
     }
-    await Promise.all(proms)
+    if (PARALLEL_WRITE) await Promise.all(proms)
 
-    const { names, stats } = await drive.readdir('', { includeStats: true })
-    t.same(names.length, NUM_FILES)
-    t.same(stats.length, NUM_FILES)
+    const objs = await drive.readdir('', { includeStats: true })
+    t.same(objs.length, NUM_FILES)
+    let statError = null
+    let mountError = null
+    for (let { name, stat, mount } of objs) {
+      if (stat.mode !== 33188) statError = 'stat mode is incorrect'
+      if (!mount.key.equals(drive.key)) mountError = 'mount key is not the drive key'
+    }
+    if (statError) t.fail(statError)
+    if (mountError) t.fail(mountError)
 
     await drive.close()
   } catch (err) {
