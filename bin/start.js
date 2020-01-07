@@ -2,11 +2,10 @@ const p = require('path')
 
 const ora = require('ora')
 const chalk = require('chalk')
-const pm2 = require('pm2')
 const mkdirp = require('mkdirp')
 
-const { HyperdriveClient } = require('hyperdrive-daemon-client')
 const constants = require('hyperdrive-daemon-client/lib/constants')
+const { start } = require('../manager')
 
 exports.command = 'start'
 exports.desc = 'Start the Hyperdrive daemon.'
@@ -34,51 +33,20 @@ exports.builder = {
 }
 
 exports.handler = async function (argv) {
-  const client = new HyperdriveClient(`localhost:${argv.port}`)
-  client.ready(err => {
-    if (err) return onerror(err)
-    console.log(chalk.green('The Hyperdrive daemon is already running.'))
-  })
-
-  function onerror (err) {
-    if (!err.disconnected) return showError(err)
-    start(argv).catch(showError)
-  }
-
-  function showError (err) {
-    console.error(chalk.red('Could not start the Hyperdrive daemon:'))
-    console.error(chalk.red(`   ${err}`))
-  }
-}
-
-async function start (argv) {
-  let endpoint = `localhost:${argv.port}`
   let spinner = ora(chalk.blue('Starting the Hyperdrive daemon...')).start()
-  mkdirp(constants.root, err => {
-    if (err) return onerror(`Could not create storage directory: ${constants.root}`)
-    pm2.connect(err => {
-      if (err) return onerror('Could not connect to the process manager to start the daemon.')
-      pm2.start({
-        script: p.join(__dirname, '..', 'index.js'),
-        name: 'hyperdrive',
-        autorestart: false,
-        output: constants.unstructuredLog,
-        error: constants.unstructuredLog,
-        args: ['--port', argv.port, '--storage', argv.storage, '--log-level', argv['log-level'], '--bootstrap', argv.bootstrap.join(',')],
-        interpreterArgs: '--max-old-space-size=4096'
-      }, err => {
-        pm2.disconnect()
-        if (err) return onerror(`The daemon did not start successfully: ${err}`)
-        return onsuccess()
-      })
-    })
-  })
+  try {
+    const { opts } = await start(argv)
+    return onsuccess(opts)
+  } catch (err) {
+    return onerror(err)
+  }
 
   function onerror (err) {
     spinner.fail(chalk.red(err))
+    process.exit(1)
   }
-
-  function onsuccess () {
-    spinner.succeed(chalk.green(`Hyperdrive daemon listening on ${endpoint}`))
+  function onsuccess (opts) {
+    spinner.succeed(chalk.green(`Hyperdrive daemon listening on ${opts.endpoint}`))
+    process.exit(0)
   }
 }

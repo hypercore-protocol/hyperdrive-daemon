@@ -48,6 +48,7 @@
     "stream-collector": "^1.0.1",
     "subleveldown": "^4.0.0",
     "through2-map": "^3.0.0",
+    "why-is-node-running": "^2.1.0",
     "yargs": "^13.2.1"
   },
   "optionalDependencies": {

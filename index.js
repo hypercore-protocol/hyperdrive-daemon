@@ -134,16 +134,6 @@ class HyperdriveDaemon extends EventEmitter {
 
   createMainHandlers () {
     return {
-      stop: async (call) => {
-        await this.stop()
-        setTimeout(() => {
-          console.error('Daemon is exiting.')
-          this.server.forceShutdown()
-          if (this._isMain) process.exit(0)
-        }, 250)
-        return new rpc.main.messages.StopResponse()
-      },
-
       status: async (call) => {
         return new rpc.main.messages.StatusResponse()
       }
@@ -151,17 +141,25 @@ class HyperdriveDaemon extends EventEmitter {
   }
 
   async stop () {
-    if (this._isClosed) return Promise.resolve()
-    if (this.server) this.server.forceShutdown()
+    if (this._isClosed) {
+      if (this._isMain) return process.exit(0)
+      return null
+    }
 
-    if (this.fuse && this.fuse.fuseConfigured) await this.fuse.unmount()
-    if (this.networking) await this.networking.close()
-    await this.db.close()
+    try {
+      if (this.server) this.server.forceShutdown()
+      if (this.fuse && this.fuse.fuseConfigured) await this.fuse.unmount()
+      if (this.networking) await this.networking.close()
+      await this.db.close()
+      if (this._isMain) return process.exit(0)
+    } catch (err) {
+      if (this._isMain) return process.exit(1)
+      throw err
+    }
 
     for (const event of STOP_EVENTS) {
       process.removeListener(event, this._cleanup)
     }
-
     this._isClosed = true
   }
 
