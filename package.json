@@ -34,7 +34,7 @@
     "dat-encoding": "^5.0.1",
     "fs-extra": "^7.0.1",
     "google-protobuf": "^3.8.0",
-    "hyperdrive": "beta",
+    "hyperdrive": "^10.7.0",
     "hyperdrive-daemon-client": "beta",
     "level": "^5.0.0",
     "mkdirp": "^0.5.1",

@@ -280,10 +280,11 @@ test('can list a directory from a remote hyperdrive with stats', async t => {
 
     const objs = await drive.readdir('', { includeStats: true })
     t.same(objs.length, 3)
-    for (let { name, stat, mount } of objs) {
+    for (let { name, stat, mount, innerPath } of objs) {
       t.true(expected.has(name))
       t.same(stat.mode, 33188)
       t.true(mount.key.equals(drive.key))
+      t.same(innerPath, name)
       expected.delete(name)
     }
 
