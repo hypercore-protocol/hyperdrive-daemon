@@ -52,7 +52,7 @@
     "yargs": "^13.2.1"
   },
   "optionalDependencies": {
-    "hyperdrive-fuse": "1.2.0"
+    "hyperdrive-fuse": "^1.2.2"
   },
   "devDependencies": {
     "memdb": "^1.3.1",
