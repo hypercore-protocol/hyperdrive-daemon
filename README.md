@@ -55,7 +55,7 @@ vid.mkv
 
 ## Installation
 ```
-npm i hyperdrive-daemon -g
+npm i hyperdrive-daemon@beta -g
 ```
 
 ### Setup
