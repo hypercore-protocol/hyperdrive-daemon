@@ -9,7 +9,7 @@ test('can replicate a single drive between daemons', async t => {
 
   try {
     const drive1 = await firstClient.drive.get()
-    await drive1.publish()
+    await drive1.configureNetwork({ lookup: true, announce: true })
 
     const drive2 = await secondClient.drive.get({ key: drive1.key })
 
@@ -35,7 +35,7 @@ test('can download a directory between daemons', async t => {
 
   try {
     const drive1 = await firstClient.drive.get()
-    await drive1.publish()
+    await drive1.configureNetwork({ lookup: true, announce: true })
 
     const drive2 = await secondClient.drive.get({ key: drive1.key })
 
@@ -92,7 +92,7 @@ test('can cancel an active download', async t => {
 
   try {
     const drive1 = await firstClient.drive.get()
-    await drive1.publish()
+    await drive1.configureNetwork({ lookup: true, announce: true })
 
     const drive2 = await secondClient.drive.get({ key: drive1.key })
 
@@ -165,7 +165,7 @@ test('can replicate many mounted drives between daemons', async t => {
       const mountDrive = await firstClient.drive.get()
       await rootDrive.mount(key, { key: mountDrive.key })
       await mountDrive.writeFile(key, key)
-      await mountDrive.publish()
+      await mountDrive.configureNetwork({ lookup: true, announce: true })
       mounts.push({ key: mountDrive.key, path: key + '/' + key, content: key })
     }
     return mounts
@@ -197,7 +197,7 @@ test('can replicate nested mounts between daemons', async t => {
     const firstRoot = await firstClient.drive.get()
     const firstMount1 = await firstClient.drive.get()
     const firstMount2 = await firstClient.drive.get()
-    await firstMount2.publish()
+    await firstMount2.configureNetwork({ lookup: true, announce: true })
 
     await firstRoot.mount('a', { key: firstMount1.key })
     await firstMount1.mount('b', { key: firstMount2.key })
@@ -231,7 +231,7 @@ test('can get networking stats for multiple mounts', async t => {
     const firstRoot = await firstClient.drive.get()
     const firstMount1 = await firstClient.drive.get()
     const firstMount2 = await firstClient.drive.get()
-    await firstMount2.publish()
+    await firstMount2.configureNetwork({ lookup: true, announce: true })
 
     await firstRoot.mount('a', { key: firstMount1.key })
     await firstRoot.mount('b', { key: firstMount2.key })
