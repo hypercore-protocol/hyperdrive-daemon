@@ -29,6 +29,11 @@ exports.builder = {
     description: 'Comma-separated bootstrap servers to use.',
     type: 'array',
     default: constants.bootstrap
+  },
+  'memory-only': {
+    description: 'Use in-memory storage only.',
+    type: 'boolean',
+    default: false
   }
 }
 

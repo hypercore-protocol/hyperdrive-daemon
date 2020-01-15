@@ -30,7 +30,7 @@ async function start (opts = {}) {
           autorestart: false,
           output: opts.unstructuredLog,
           error: opts.structuredLog,
-          args: ['--port', opts.port, '--storage', opts.storage, '--log-level', opts.logLevel, '--bootstrap', opts.bootstrap.join(',')],
+          args: ['--port', opts.port, '--storage', opts.storage, '--log-level', opts.logLevel, '--bootstrap', opts.bootstrap.join(','), '--memory-only', opts.memoryOnly],
           interpreterArgs: `--max-old-space-size=${opts.heapSize}`
         }
         pm2.start(description, err => {

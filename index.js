@@ -1,8 +1,6 @@
 const { EventEmitter } = require('events')
 
 const mkdirp = require('mkdirp')
-const raf = require('random-access-file')
-const level = require('level')
 const sub = require('subleveldown')
 const grpc = require('@grpc/grpc-js')
 const bjson = require('buffer-json-encoding')
@@ -35,9 +33,14 @@ class HyperdriveDaemon extends EventEmitter {
     this.opts = opts
     this.storage = opts.storage || constants.storage
     this.port = opts.port || constants.port
+    this.memoryOnly = !!opts.memoryOnly
+
+    log.info('memory only?', this.memoryOnly)
+    this._storageProvider = this.memoryOnly ? require('random-access-memory') : require('random-access-file')
+    this._dbProvider = this.memoryOnly ? require('level-mem') : require('level')
 
     const corestoreOpts = {
-      storage: path => raf(`${this.storage}/cores/${path}`),
+      storage: path => this._storageProvider(`${this.storage}/cores/${path}`),
       sparse: true,
       // Collect networking statistics.
       stats: true
@@ -87,7 +90,7 @@ class HyperdriveDaemon extends EventEmitter {
       process.once(event, this._cleanup)
     }
 
-    this.db = level(`${this.storage}/db`, { valueEncoding: 'json' })
+    this.db = this._dbProvider(`${this.storage}/db`, { valueEncoding: 'json' })
     const dbs = {
       fuse: sub(this.db, 'fuse', { valueEncoding: bjson }),
       drives: sub(this.db, 'drives', { valueEncoding: bjson }),
@@ -203,6 +206,10 @@ function extractArguments () {
       },
       port: {
         number: true
+      },
+      'memory-only': {
+        boolean: true,
+        default: false
       }
     })
     .argv
