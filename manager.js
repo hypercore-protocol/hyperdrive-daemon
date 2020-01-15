@@ -26,8 +26,10 @@ async function start (opts = {}) {
         if (err) return reject(new Error('Could not connect to the process manager to start the daemon.'))
         const description = {
           script: p.join(__dirname, 'index.js'),
-          name: opts.processName,
           autorestart: false,
+          name: opts.processName,
+          interpreter: opts.interpreter,
+          env: opts.env,
           output: opts.unstructuredLog,
           error: opts.structuredLog,
           args: ['--port', opts.port, '--storage', opts.storage, '--log-level', opts.logLevel, '--bootstrap', opts.bootstrap.join(','), '--memory-only', opts.memoryOnly],
