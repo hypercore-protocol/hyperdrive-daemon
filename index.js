@@ -140,7 +140,8 @@ class HyperdriveDaemon extends EventEmitter {
     }
   }
 
-  async stop () {
+  async stop (err) {
+    if (err) console.error(err)
     if (this._isClosed) {
       if (this._isMain) return process.exit(0)
       return null

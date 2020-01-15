@@ -27,7 +27,7 @@ async function start (opts = {}) {
         const description = {
           script: p.join(__dirname, 'index.js'),
           name: opts.processName,
-          autorestart: true,
+          autorestart: false,
           output: opts.unstructuredLog,
           error: opts.structuredLog,
           args: ['--port', opts.port, '--storage', opts.storage, '--log-level', opts.logLevel, '--bootstrap', opts.bootstrap.join(',')],
