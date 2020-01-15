@@ -34,6 +34,11 @@ exports.builder = {
     description: 'Use in-memory storage only.',
     type: 'boolean',
     default: false
+  },
+  '--foreground': {
+    description: 'Run the daemon in the foreground without detaching it from the launch process.',
+    type: 'boolean',
+    default: false
   }
 }
 
@@ -48,10 +53,10 @@ exports.handler = async function (argv) {
 
   function onerror (err) {
     spinner.fail(chalk.red(err))
-    process.exit(1)
+    if (!argv.foreground) process.exit(1)
   }
   function onsuccess (opts) {
     spinner.succeed(chalk.green(`Hyperdrive daemon listening on ${opts.endpoint}`))
-    process.exit(0)
+    if (!argv.foreground) process.exit(0)
   }
 }

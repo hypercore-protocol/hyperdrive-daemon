@@ -119,8 +119,8 @@ class HyperdriveDaemon extends EventEmitter {
 
   async _loadMetadata () {
     this.metadata = this.opts.metadata || await new Promise((resolve, reject) => {
-      loadMetadata(async (err, metadata) => {
-        if (err) metadata = await createMetadata(`localhost:${this.port}`)
+      loadMetadata(this.storage, async (err, metadata) => {
+        if (err) metadata = await createMetadata(this.storage, `localhost:${this.port}`)
         return resolve(metadata)
       })
     })

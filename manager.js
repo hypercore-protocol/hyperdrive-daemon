@@ -1,4 +1,6 @@
 const p = require('path')
+const { spawn } = require('child_process')
+
 const mkdirp = require('mkdirp')
 const pm2 = require('pm2')
 
@@ -9,7 +11,7 @@ async function start (opts = {}) {
   opts = { ...constants, ...opts }
   opts.endpoint = `localhost:${opts.port}`
 
-  const client = new HyperdriveClient(opts.endpoint)
+  const client = new HyperdriveClient(opts.endpoint, { storage: opts.storage })
   const running = await new Promise((resolve, reject) => {
     client.ready(err => {
       if (!err) return resolve(true)
@@ -19,22 +21,47 @@ async function start (opts = {}) {
   })
   if (running) return { opts }
 
-  return new Promise((resolve, reject) => {
-    mkdirp(constants.root, err => {
+  await new Promise((resolve, reject) => {
+    mkdirp(opts.storage || constants.root, err => {
       if (err) return reject(new Error(`Could not create storage directory: ${constants.root}`))
+      return resolve()
+    })
+  })
+
+  const description = {
+    script: p.join(__dirname, 'index.js'),
+    args: ['--port', opts.port, '--storage', opts.storage, '--log-level', opts.logLevel, '--bootstrap', opts.bootstrap.join(','), '--memory-only', !!opts.memoryOnly],
+    interpreter: opts.interpreter || process.execPath,
+    interpreterArgs: `--max-old-space-size=${opts.heapSize}`,
+    name: opts.processName || 'hyperdrive',
+    env: opts.env || process.env,
+    output: opts.unstructuredLog,
+    error: opts.structuredLog,
+    autorestart: false
+  }
+
+  if (!!opts.foreground) {
+    return startForeground(description, opts)
+  } else {
+    return startDaemon(description, opts)
+  }
+
+  function startForeground (description, opts) {
+    const proc = spawn(description.interpreter, [description.interpreterArgs, description.script, ...description.args], {
+      detached: false,
+      stdio: 'inherit',
+      env: description.env
+    })
+    process.on('SIGTERM', () => {
+      proc.kill('SIGTERM')
+    })
+    return { opts, description }
+  }
+
+  function startDaemon (description) {
+    return new Promise((resolve, reject) => {
       pm2.connect(err => {
         if (err) return reject(new Error('Could not connect to the process manager to start the daemon.'))
-        const description = {
-          script: p.join(__dirname, 'index.js'),
-          autorestart: false,
-          name: opts.processName,
-          interpreter: opts.interpreter,
-          env: opts.env,
-          output: opts.unstructuredLog,
-          error: opts.structuredLog,
-          args: ['--port', opts.port, '--storage', opts.storage, '--log-level', opts.logLevel, '--bootstrap', opts.bootstrap.join(','), '--memory-only', !!opts.memoryOnly],
-          interpreterArgs: `--max-old-space-size=${opts.heapSize}`
-        }
         pm2.start(description, err => {
           pm2.disconnect()
           if (err) return reject(err)
@@ -42,7 +69,7 @@ async function start (opts = {}) {
         })
       })
     })
-  })
+  }
 }
 
 async function stop (name, port) {
