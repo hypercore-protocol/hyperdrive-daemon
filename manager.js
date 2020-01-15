@@ -22,8 +22,9 @@ async function start (opts = {}) {
   if (running) return { opts }
 
   await new Promise((resolve, reject) => {
-    mkdirp(opts.storage || constants.root, err => {
-      if (err) return reject(new Error(`Could not create storage directory: ${constants.root}`))
+    const storagePath = opts.storage ? p.join(opts.storage, 'storage') : constants.storage
+    mkdirp(storagePath, err => {
+      if (err) return reject(new Error(`Could not create storage directory: ${storagePath}`))
       return resolve()
     })
   })

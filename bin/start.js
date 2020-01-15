@@ -18,7 +18,7 @@ exports.builder = {
   storage: {
     description: 'The storage directory for hyperdrives and associated metadata.',
     type: 'string',
-    default: constants.storage
+    default: constants.root
   },
   'log-level': {
     description: 'The log level',

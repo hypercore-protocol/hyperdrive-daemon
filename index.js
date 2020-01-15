@@ -1,3 +1,4 @@
+const p = require('path')
 const { EventEmitter } = require('events')
 
 const mkdirp = require('mkdirp')
@@ -31,7 +32,9 @@ class HyperdriveDaemon extends EventEmitter {
     super()
 
     this.opts = opts
-    this.storage = opts.storage || constants.storage
+    this.root = opts.storage || constants.root
+    this.storage = p.join(this.root, 'storage')
+
     this.port = opts.port || constants.port
     this.memoryOnly = !!opts.memoryOnly
 
@@ -119,8 +122,8 @@ class HyperdriveDaemon extends EventEmitter {
 
   async _loadMetadata () {
     this.metadata = this.opts.metadata || await new Promise((resolve, reject) => {
-      loadMetadata(this.storage, async (err, metadata) => {
-        if (err) metadata = await createMetadata(this.storage, `localhost:${this.port}`)
+      loadMetadata(this.root, async (err, metadata) => {
+        if (err) metadata = await createMetadata(this.root, `localhost:${this.port}`)
         return resolve(metadata)
       })
     })
