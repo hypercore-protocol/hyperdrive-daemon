@@ -8,10 +8,11 @@ const { HyperdriveClient } = require('hyperdrive-daemon-client')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
 async function start (opts = {}) {
+  const initialOpts = opts
   opts = { ...constants, ...opts }
   opts.endpoint = `localhost:${opts.port}`
 
-  const client = new HyperdriveClient(opts.endpoint, { storage: opts.storage })
+  const client = new HyperdriveClient(opts.endpoint, { storage: initialOpts.storage || opts.root })
   const running = await new Promise((resolve, reject) => {
     client.ready(err => {
       if (!err) return resolve(true)
@@ -22,7 +23,7 @@ async function start (opts = {}) {
   if (running) return { opts }
 
   await new Promise((resolve, reject) => {
-    const storagePath = opts.storage ? p.join(opts.storage, 'storage') : constants.storage
+    const storagePath = p.join(opts.storage, 'storage')
     mkdirp(storagePath, err => {
       if (err) return reject(new Error(`Could not create storage directory: ${storagePath}`))
       return resolve()
