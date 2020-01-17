@@ -62,6 +62,7 @@ async function createInstance (id, port, bootstrap, opts = {}) {
     storage: path,
     bootstrap,
     port,
+    memoryOnly: !!opts.memoryOnly,
     metadata: {
       token,
       endpoint

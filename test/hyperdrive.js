@@ -586,7 +586,8 @@ test('can create a symlink to directories', async t => {
   t.end()
 })
 
-test('drives are closed when all corresponding sessions are closed', async t => {
+// TODO: Stop skipping once we've updated hyperdrive/mountable-hypertrie to nanoresource.
+test.skip('drives are closed when all corresponding sessions are closed', async t => {
   const { client, cleanup, daemon } = await createOne()
 
   try {
@@ -634,12 +635,44 @@ test('drives are writable after a daemon restart', async t => {
   t.end()
 })
 
+test('mounts are writable in memory-only mode', async t => {
+  var { dir, client, cleanup } = await createOne({ memoryOnly: true })
+
+  try {
+    var drive = await client.drive.get()
+    var mount = await client.drive.get()
+    const driveKey = drive.key
+    const mountKey = mount.key
+
+    await drive.writeFile('a', 'a')
+    await drive.mount('b', { key: mountKey })
+    await drive.writeFile('b/c', 'b/c')
+    await mount.writeFile('d', 'd')
+
+    const aContents = await drive.readFile('a')
+    const bcContents = await drive.readFile('b/c')
+    const cContents = await mount.readFile('c')
+    const dContents = await mount.readFile('d')
+
+    t.same(aContents, Buffer.from('a'))
+    t.same(bcContents, Buffer.from('b/c'))
+    t.same(cContents, Buffer.from('b/c'))
+    t.same(dContents, Buffer.from('d'))
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 // TODO: Figure out why the grpc server is not terminating.
 test.onFinish(() => {
   setTimeout(() => {
     process.exit(0)
   }, 100)
 })
+
 
 function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
