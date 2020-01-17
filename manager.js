@@ -32,7 +32,7 @@ async function start (opts = {}) {
 
   const description = {
     script: p.join(__dirname, 'index.js'),
-    args: ['--port', opts.port, '--storage', opts.storage, '--log-level', opts.logLevel, '--bootstrap', opts.bootstrap.join(','), '--memory-only', !!opts.memoryOnly],
+    args: ['--port', opts.port, '--storage', opts.storage, '--log-level', opts.logLevel, '--bootstrap', opts.bootstrap.join(','), '--memory-only', !!opts.memoryOnly, '--telemetry', !!opts.telemetry],
     interpreter: opts.interpreter || process.execPath,
     interpreterArgs: `--max-old-space-size=${opts.heapSize}`,
     name: opts.processName || 'hyperdrive',

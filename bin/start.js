@@ -35,10 +35,15 @@ exports.builder = {
     type: 'boolean',
     default: false
   },
-  '--foreground': {
+  foreground: {
     description: 'Run the daemon in the foreground without detaching it from the launch process.',
     type: 'boolean',
     default: false
+  },
+  telemetry: {
+    description: '(Beta Only) Report non-confidential usage statistics to the Hyperdrive team.',
+    type: 'boolean',
+    default: true
   }
 }
 

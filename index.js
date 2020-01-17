@@ -13,6 +13,7 @@ const { createMetadata } = require('./lib/metadata')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
 const DriveManager = require('./lib/drives')
+const TelemetryManager = require('./lib/telemetry')
 const { serverError } = require('./lib/errors')
 
 try {
@@ -37,6 +38,7 @@ class HyperdriveDaemon extends EventEmitter {
 
     this.port = opts.port || constants.port
     this.memoryOnly = !!opts.memoryOnly
+    this.telemetryEnabled = !!opts.telemetry
 
     log.info('memory only?', this.memoryOnly)
     this._storageProvider = this.memoryOnly ? require('random-access-memory') : require('random-access-file')
@@ -67,6 +69,8 @@ class HyperdriveDaemon extends EventEmitter {
     this.db = null
     this.drives = null
     this.fuse = null
+    this.telemetry = null
+    this._startTime = null
 
     // Set in start.
     this.server = null
@@ -112,12 +116,18 @@ class HyperdriveDaemon extends EventEmitter {
     await this.corestore.ready()
     this.networking.listen()
 
+    if (this.telemetryEnabled) {
+      this.telemetry = new TelemetryManager(this)
+      this.telemetry.start()
+    }
+
     await Promise.all([
       this.drives.ready(),
       this.fuse ? this.fuse.ready() : Promise.resolve(),
     ])
 
     this._isReady = true
+    this._startTime = Date.now()
   }
 
   async _loadMetadata () {
@@ -146,6 +156,11 @@ class HyperdriveDaemon extends EventEmitter {
     }
   }
 
+  get uptime () {
+    if (!this._startTime) return 0
+    return Date.now() - this._startTime
+  }
+
   async stop (err) {
     if (err) console.error(err)
     if (this._isClosed) {
@@ -167,6 +182,8 @@ class HyperdriveDaemon extends EventEmitter {
     for (const event of STOP_EVENTS) {
       process.removeListener(event, this._cleanup)
     }
+
+    if (this.telemetry) this.telemetry.stop()
     this._isClosed = true
   }
 
@@ -213,6 +230,10 @@ function extractArguments () {
       'memory-only': {
         boolean: true,
         default: false
+      },
+      telemetry: {
+        boolean: true,
+        default: true
       }
     })
     .argv
