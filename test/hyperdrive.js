@@ -666,6 +666,37 @@ test('mounts are writable in memory-only mode', async t => {
   t.end()
 })
 
+test('can get network configuration alongside drive stats', async t => {
+  var { dir, client, cleanup } = await createOne({ memoryOnly: true })
+
+  try {
+    const drive1 = await client.drive.get()
+    const drive2 = await client.drive.get()
+
+    await drive1.writeFile('a', 'a')
+    await drive2.writeFile('b', 'bbbbbb')
+    await drive2.writeFile('c', 'cccccc')
+
+    await drive1.configureNetwork({ announce: true, lookup: true, remember: true })
+    await drive2.configureNetwork({ announce: false, lookup: true, remember: false })
+
+    const { network: network1 } = await drive1.stats()
+    const { network: network2 } = await drive2.stats()
+
+    t.true(network1.announce)
+    t.true(network1.lookup)
+    t.true(network1.remember)
+    t.false(network2.announce)
+    t.true(network2.lookup)
+    t.false(network2.remember)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 // TODO: Figure out why the grpc server is not terminating.
 test.onFinish(() => {
   setTimeout(() => {

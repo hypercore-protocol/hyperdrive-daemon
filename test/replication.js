@@ -45,14 +45,14 @@ test('can download a directory between daemons', async t => {
     await drive1.writeFile('/a/4', 'four')
     await drive1.writeFile('/a/5', 'five')
 
-    var stats = await drive1.stats()
+    var { stats } = await drive1.stats()
     t.same(stats[0].content.totalBlocks, 5)
     t.same(stats[0].content.downloadedBlocks, 5)
 
     // 100 ms delay for replication.
     await delay(100)
 
-    stats = await drive2.stats()
+    var { stats } = await drive2.stats()
     t.same(stats[0].content.totalBlocks, 5)
 
     // TODO: Uncomment after hypercore bug fix.
@@ -68,7 +68,7 @@ test('can download a directory between daemons', async t => {
     // 200 ms delay for download to complete.
     await delay(200)
 
-    stats = await drive2.stats()
+    var { stats } = await drive2.stats()
     fileStats = await drive2.fileStats('a')
     t.same(stats[0].content.totalBlocks, 5)
     t.same(stats[0].content.downloadedBlocks, 5)
@@ -110,7 +110,7 @@ test('can cancel an active download', async t => {
     // Wait to make sure that the download is not continuing.
     await delay(100)
 
-    const totals = await drive2.stats()
+    const { stats: totals } = await drive2.stats()
     fileStats = await drive2.fileStats('a')
     const contentTotals = totals[0].content
     t.true(contentTotals.downloadedBlocks < 100 && contentTotals.downloadedBlocks > 0)
@@ -268,7 +268,7 @@ test('can get networking stats for multiple mounts', async t => {
     }
     t.true(uploadedBytes)
 
-    const thirdStats = await firstMount2.stats()
+    const { stats: thirdStats } = await firstMount2.stats()
     t.same(thirdStats[0].content.uploadedBytes, uploadedBytes)
   } catch (err) {
     t.fail(err)
