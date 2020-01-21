@@ -40,7 +40,7 @@ class HyperdriveDaemon extends EventEmitter {
     this.memoryOnly = !!opts.memoryOnly
     this.telemetryEnabled = !!opts.telemetry
 
-    log.info('memory only?', this.memoryOnly)
+    log.info('memory only?', this.memoryOnly, 'telemetry enabled?', this.telemetryEnabled)
     this._storageProvider = this.memoryOnly ? require('random-access-memory') : require('random-access-file')
     this._dbProvider = this.memoryOnly ? require('level-mem') : require('level')
 
@@ -70,6 +70,7 @@ class HyperdriveDaemon extends EventEmitter {
     this.drives = null
     this.fuse = null
     this.telemetry = null
+    this.metadata = null
     this._startTime = null
 
     // Set in start.
@@ -171,8 +172,8 @@ class HyperdriveDaemon extends EventEmitter {
     try {
       if (this.server) this.server.forceShutdown()
       if (this.fuse && this.fuse.fuseConfigured) await this.fuse.unmount()
-      if (this.networking) await this.networking.close()
       await this.db.close()
+      if (this.networking) await this.networking.close()
       if (this._isMain) return process.exit(0)
     } catch (err) {
       if (this._isMain) return process.exit(1)

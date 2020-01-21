@@ -48,6 +48,7 @@ exports.builder = {
 }
 
 exports.handler = async function (argv) {
+  if (argv.telemetry) displayTelemetryNotice()
   let spinner = ora(chalk.blue('Starting the Hyperdrive daemon...')).start()
   try {
     const { opts } = await start(argv)
@@ -64,4 +65,12 @@ exports.handler = async function (argv) {
     spinner.succeed(chalk.green(`Hyperdrive daemon listening on ${opts.endpoint}`))
     if (!argv.foreground) process.exit(0)
   }
+}
+
+function displayTelemetryNotice () {
+  console.log('** Beta Notice: **\n')
+  console.log('  The daemon\'s been started with simple telemetry enabled. To disable, restart with --telemetry false.\n')
+  console.log('  Telemetry allows us to collect statistics such as uptime and the number of active connections.')
+  console.log('  We do not send confidential information, such as drive keys, to our telemetry server.')
+  console.log()
 }
