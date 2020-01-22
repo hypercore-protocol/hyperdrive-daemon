@@ -12,6 +12,10 @@ async function start (opts = {}) {
   opts = { ...constants, ...opts }
   opts.endpoint = `localhost:${opts.port}`
 
+  if (opts.env && !opts.env.PATH) {
+    opts.env = { ...opts.env, PATH: process.env.PATH }
+  }
+
   const client = new HyperdriveClient(opts.endpoint, { storage: initialOpts.storage || opts.root })
   const running = await new Promise((resolve, reject) => {
     client.ready(err => {
