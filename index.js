@@ -163,7 +163,7 @@ class HyperdriveDaemon extends EventEmitter {
   }
 
   async stop (err) {
-    if (err) console.error(err)
+    if (err) log.error({ error: err }, 'stopping daemon due to error')
     if (this._isClosed) {
       if (this._isMain) return process.exit(0)
       return null
