@@ -64,6 +64,11 @@ class HyperdriveDaemon extends EventEmitter {
     }
     networkOpts.maxPeers = opts.maxPeers || MAX_PEERS
     this.networking = new SwarmNetworker(this.corestore, networkOpts)
+    this.networking.on('replication-error', err => {
+      if (err.message && err.message.indexOf('Remote signature could not be verified') !== -1) {
+        log.warn('Remote signature verification is failing -- one of your hypercores appears to be forked or corrupted.')
+      }
+    })
 
     // Set in ready.
     this.db = null
@@ -85,7 +90,10 @@ class HyperdriveDaemon extends EventEmitter {
       if (this._isClosed) return Promise.resolve()
       if (this._readyPromise) return this._readyPromise
       this._readyPromise = this._ready()
-      return this._readyPromise
+      return this._readyPromise.catch(err => {
+        log.error({ error: err }, 'error in daemon ready function -- cleaning up')
+        return this.stop(err)
+      })
     }
   }
 
