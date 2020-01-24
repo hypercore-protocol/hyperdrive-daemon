@@ -1,5 +1,5 @@
 const test = require('tape')
-
+const hypercoreCrypto = require('hypercore-crypto')
 const { create } = require('./util/create')
 
 test('can replicate a single drive between daemons', async t => {
@@ -276,6 +276,56 @@ test('can get networking stats for multiple mounts', async t => {
 
   await cleanup()
   t.end()
+})
+
+// This will hang until we add timeouts to the hyperdrive reads.
+test.skip('can continue getting drive info after remote content is cleared (no longer available)', async t => {
+  const { clients, cleanup, daemons } = await create(2)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+
+  const localStore = daemons[0].corestore
+
+  try {
+    const drive = await firstClient.drive.get()
+    await drive.configureNetwork({ announce: true, lookup: true })
+    await drive.writeFile('hello', 'world')
+    const clone = await secondClient.drive.get({ key: drive.key })
+    console.log('DRIVE KEY:', drive.key.toString('hex'))
+    console.log('DRIVE DKEY:', hypercoreCrypto.discoveryKey(drive.key).toString('hex'))
+
+    await delay(500)
+
+    t.same(await clone.readFile('hello'), Buffer.from('world'))
+    await drive.writeFile('hello', 'brave new world')
+
+    await clearContent([drive.key], localStore)
+
+    const cloneStats = await clone.stats()
+    console.log('clone stats here:', cloneStats)
+  } catch (err) {
+    t.fail(err)
+  }
+
+
+  await cleanup()
+  t.end()
+
+  async function clearContent (metadataKeys, store) {
+    const metadataKeySet = new Set(metadataKeys.map(k => k.toString('hex')))
+    console.log('metadataKeySet:', metadataKeySet)
+    console.log('external cores:', store._externalCores)
+    for (const [dkeyString, core] of store._externalCores) {
+      if (metadataKeySet.has(core.key.toString('hex'))) continue
+      await new Promise((resolve, reject) => {
+        console.log('CLEARING CORE:', core)
+        core.clear(0, core.length, err => {
+          if (err) return reject(err)
+          return resolve()
+        })
+      })
+    }
+  }
 })
 
 function delay (ms) {
