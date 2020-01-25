@@ -1,6 +1,8 @@
 # ⛰️ hyperdrive-daemon
 *Note: This is currently a prerelease based on the [`v10`](https://github.com/mafintosh/hyperdrive/tree/v10) branch of Hyperdrive. It should be relatively stable, but expect some roughness around the edges.*
 
+**Newer Note: We've done a major rehaul of the CLI and FUSE directory structure which is not yet reflected in the README below. Docs incoming shortly, but if you want to play now you'll need to poke around a bit.**
+
 A daemon for creating, storing and sharing Hyperdrives. Provides both a gRPC API (see [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client)), and an optional FUSE interface for mounting drives as directories.
 
 If you choose to use FUSE, the Hyperdrive daemon lets your mount Hyperdrives as directories on both OSX and Linux. The daemon requires all users to have a private "root" drive, into which additional subdrives can be mounted and shared with others. After starting the daemon, you can create your root drive as follows:
