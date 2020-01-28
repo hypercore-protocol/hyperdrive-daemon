@@ -8,7 +8,7 @@ const bjson = require('buffer-json-encoding')
 const Corestore = require('corestore')
 const SwarmNetworker = require('corestore-swarm-networking')
 
-const { rpc, loadMetadata } = require('hyperdrive-daemon-client')
+const { rpc, loadMetadata, apiVersion } = require('hyperdrive-daemon-client')
 const { createMetadata } = require('./lib/metadata')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
@@ -86,6 +86,8 @@ class HyperdriveDaemon extends EventEmitter {
     this._isClosed = false
     this._readyPromise = false
 
+    this._versions = null
+
     this.ready = () => {
       if (this._isClosed) return Promise.resolve()
       if (this._readyPromise) return this._readyPromise
@@ -137,6 +139,15 @@ class HyperdriveDaemon extends EventEmitter {
 
     this._isReady = true
     this._startTime = Date.now()
+    this._versions = {
+      daemon: require('./package.json').version,
+      client: require('hyperdrive-daemon-client/package.json').version,
+      schema: require('hyperdrive-schemas/package.json').version,
+    }
+    if (this.fuse) {
+      this._versions.fuseNative = require('fuse-native/package.json').version,
+      this._versions.hyperdriveFuse = require('hyperdrive-fuse/package.json').version
+    }
   }
 
   async _loadMetadata () {
@@ -160,7 +171,17 @@ class HyperdriveDaemon extends EventEmitter {
   createMainHandlers () {
     return {
       status: async (call) => {
-        return new rpc.main.messages.StatusResponse()
+        const rsp = new rpc.main.messages.StatusResponse()
+        rsp.setApiversion(apiVersion)
+        rsp.setUptime(Date.now() - this._startTime)
+        if (this._versions) {
+          rsp.setDaemonversion(this._versions.daemon)
+          rsp.setClientversion(this._versions.client)
+          rsp.setSchemaversion(this._versions.schema)
+          if (this._versions.fuseNative) rsp.setFusenativeversion(this._versions.fuseNative)
+          if (this._versions.hyperdriveFuse) rsp.setHyperdrivefuseversion(this._versions.hyperdriveFuse)
+        }
+        return rsp
       }
     }
   }
