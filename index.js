@@ -143,6 +143,7 @@ class HyperdriveDaemon extends EventEmitter {
       daemon: require('./package.json').version,
       client: require('hyperdrive-daemon-client/package.json').version,
       schema: require('hyperdrive-schemas/package.json').version,
+      hyperdrive: require('hyperdrive/package.json').version
     }
     if (this.fuse) {
       this._versions.fuseNative = require('fuse-native/package.json').version,
@@ -178,6 +179,7 @@ class HyperdriveDaemon extends EventEmitter {
           rsp.setDaemonversion(this._versions.daemon)
           rsp.setClientversion(this._versions.client)
           rsp.setSchemaversion(this._versions.schema)
+          rsp.setHyperdriveversion(this._versions.hyperdrive)
           if (this._versions.fuseNative) rsp.setFusenativeversion(this._versions.fuseNative)
           if (this._versions.hyperdriveFuse) rsp.setHyperdrivefuseversion(this._versions.hyperdriveFuse)
         }
