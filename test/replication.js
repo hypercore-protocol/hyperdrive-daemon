@@ -53,7 +53,8 @@ test('can download a directory between daemons', async t => {
     await delay(100)
 
     var { stats } = await drive2.stats()
-    t.same(stats[0].content.totalBlocks, 5)
+    // Since there has not been a content read yet, the stats will not report the latest content length.
+    t.same(stats[0].content.totalBlocks, 0)
 
     // TODO: Uncomment after hypercore bug fix.
     // t.same(stats[0].content.downloadedBlocks, 0)
