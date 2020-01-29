@@ -45,6 +45,7 @@ async function start (opts = {}) {
     env: opts.env || process.env,
     output: opts.unstructuredLog,
     error: opts.structuredLog,
+    killTimeout: 10000,
     autorestart: false
   }
 

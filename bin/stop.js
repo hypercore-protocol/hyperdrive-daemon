@@ -23,7 +23,7 @@ exports.builder = {
 }
 
 exports.handler = async function (argv) {
-  let spinner = ora(chalk.blue('Stopping the Hyperdrive daemon...')).start()
+  let spinner = ora(chalk.blue('Stopping the Hyperdrive daemon (might take a while to unannounce)...')).start()
   try {
     await stop(argv.name, argv.port)
     return onsuccess()
