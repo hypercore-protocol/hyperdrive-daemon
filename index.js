@@ -7,6 +7,7 @@ const grpc = require('@grpc/grpc-js')
 const bjson = require('buffer-json-encoding')
 const Corestore = require('corestore')
 const SwarmNetworker = require('corestore-swarm-networking')
+const HypercoreProtocol = require('hypercore-protocol')
 
 const { rpc, loadMetadata, apiVersion } = require('hyperdrive-daemon-client')
 const { createMetadata } = require('./lib/metadata')
@@ -24,6 +25,7 @@ try {
 }
 const log = require('./lib/log').child({ component: 'server' })
 
+const NAMESPACE = 'hyperdrive-daemon'
 const STOP_EVENTS = ['SIGINT', 'SIGTERM', 'unhandledRejection', 'uncaughtException']
 const WATCH_LIMIT = 300
 const MAX_PEERS = 128
@@ -128,7 +130,11 @@ class HyperdriveDaemon extends EventEmitter {
     if (this.fuse) this.fuse.on('error', err => this.emit('error', err))
 
     await this.corestore.ready()
-    this.networking.listen()
+    const seed = this.corestore._deriveSecret(NAMESPACE, 'replication-keypair')
+    log.info({ seed: seed.toString('hex') }, 'creating replication keypair')
+    this.networking.listen({
+      keyPair: HypercoreProtocol.keyPair(seed)
+    })
 
     if (this.telemetryEnabled) {
       this.telemetry = new TelemetryManager(this)
