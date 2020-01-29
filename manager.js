@@ -7,6 +7,8 @@ const pm2 = require('pm2')
 const { HyperdriveClient } = require('hyperdrive-daemon-client')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
+const HyperdriveDaemon = require('.')
+
 async function start (opts = {}) {
   const initialOpts = opts
   opts = { ...constants, ...opts }
@@ -53,14 +55,8 @@ async function start (opts = {}) {
   }
 
   function startForeground (description, opts) {
-    const proc = spawn(description.interpreter, [description.interpreterArgs, description.script, ...description.args], {
-      detached: false,
-      stdio: 'inherit',
-      env: description.env
-    })
-    process.on('SIGTERM', () => {
-      proc.kill('SIGTERM')
-    })
+    const daemon = new HyperdriveDaemon({ ...opts, metadata: null, main: true })
+    daemon.start()
     return { opts, description }
   }
 

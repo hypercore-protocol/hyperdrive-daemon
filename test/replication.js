@@ -291,8 +291,6 @@ test.skip('can continue getting drive info after remote content is cleared (no l
     await drive.configureNetwork({ announce: true, lookup: true })
     await drive.writeFile('hello', 'world')
     const clone = await secondClient.drive.get({ key: drive.key })
-    console.log('DRIVE KEY:', drive.key.toString('hex'))
-    console.log('DRIVE DKEY:', hypercoreCrypto.discoveryKey(drive.key).toString('hex'))
 
     await delay(500)
 

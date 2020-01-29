@@ -41,7 +41,7 @@ class HyperdriveDaemon extends EventEmitter {
     this.telemetryEnabled = !!opts.telemetry
 
     log.info('memory only?', this.memoryOnly, 'telemetry enabled?', this.telemetryEnabled)
-    this._storageProvider = this.memoryOnly ? require('random-access-memory') : require('random-access-file')
+    this._storageProvider = this.memoryOnly ? require('random-access-memory') : require('hypercore-default-storage')
     this._dbProvider = this.memoryOnly ? require('level-mem') : require('level')
 
     const corestoreOpts = {
@@ -52,11 +52,13 @@ class HyperdriveDaemon extends EventEmitter {
     }
     this.corestore = new Corestore(corestoreOpts.storage, corestoreOpts)
 
-    const networkOpts = {}
+    const networkOpts = {
+      announceLocalAddress: true
+    }
     const bootstrapOpts = opts.bootstrap || constants.bootstrap
 
     if (bootstrapOpts && bootstrapOpts.length && bootstrapOpts[0] !== '') {
-      if (bootstrapOpts === false && bootstrapOpts[0] === 'false') {
+      if (bootstrapOpts === false || bootstrapOpts[0] === 'false') {
         networkOpts.bootstrap = false
       } else {
         networkOpts.bootstrap = bootstrapOpts
@@ -65,6 +67,7 @@ class HyperdriveDaemon extends EventEmitter {
     networkOpts.maxPeers = opts.maxPeers || MAX_PEERS
     this.networking = new SwarmNetworker(this.corestore, networkOpts)
     this.networking.on('replication-error', err => {
+      log.trace({ error: err.message, stack: err.stack }, 'replication error')
       if (err.message && err.message.indexOf('Remote signature could not be verified') !== -1) {
         log.warn('Remote signature verification is failing -- one of your hypercores appears to be forked or corrupted.')
       }
@@ -93,7 +96,7 @@ class HyperdriveDaemon extends EventEmitter {
       if (this._readyPromise) return this._readyPromise
       this._readyPromise = this._ready()
       return this._readyPromise.catch(err => {
-        log.error({ error: err }, 'error in daemon ready function -- cleaning up')
+        log.error({ error: err, stack: err.stack }, 'error in daemon ready function -- cleaning up')
         return this.stop(err)
       })
     }
@@ -105,7 +108,7 @@ class HyperdriveDaemon extends EventEmitter {
 
     this._cleanup = this.stop.bind(this)
     for (const event of STOP_EVENTS) {
-      process.once(event, this._cleanup)
+      process.on(event, this._cleanup)
     }
 
     this.db = this._dbProvider(`${this.storage}/db`, { valueEncoding: 'json' })
@@ -194,29 +197,42 @@ class HyperdriveDaemon extends EventEmitter {
   }
 
   async stop (err) {
-    if (err) log.error({ error: true, message: err.message, stack: err.stack, errno: err.errno }, 'stopping daemon due to error')
+    if (err) log.error({ error: true, err, message: err.message, stack: err.stack, errno: err.errno }, 'stopping daemon due to error')
     if (this._isClosed) {
+      log.info('force killing the process because stop has been called twice')
       if (this._isMain) return process.exit(0)
       return null
     }
+    this._isClosed = true
 
     try {
       if (this.server) this.server.forceShutdown()
+      log.info('stopping telemetry if telemetry is running')
+      if (this.telemetry) this.telemetry.stop()
+      log.info('waiting for fuse to unmount')
       if (this.fuse && this.fuse.fuseConfigured) await this.fuse.unmount()
-      await this.db.close()
+      log.info('waiting for networking to close')
       if (this.networking) await this.networking.close()
+      log.info('waiting for corestore to close')
+      await new Promise((resolve, reject) => {
+        this.corestore.close(err => {
+          if (err) return reject(err)
+          return resolve()
+        })
+      })
+      log.info('waiting for db to close')
+      await this.db.close()
       if (this._isMain) return process.exit(0)
     } catch (err) {
+      log.error({ error: err.message, stack: err.stack }, 'error in cleanup')
       if (this._isMain) return process.exit(1)
       throw err
     }
+    log.info('finished cleanup -- shutting down')
 
     for (const event of STOP_EVENTS) {
       process.removeListener(event, this._cleanup)
     }
-
-    if (this.telemetry) this.telemetry.stop()
-    this._isClosed = true
   }
 
   async start () {
