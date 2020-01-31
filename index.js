@@ -74,6 +74,12 @@ class HyperdriveDaemon extends EventEmitter {
         log.warn('Remote signature verification is failing -- one of your hypercores appears to be forked or corrupted.')
       }
     })
+    this.networking.on('stream-opened', stream => {
+      log.trace({ remoteType: stream.remoteType, remoteAddress: stream.remoteAddress }, 'replication stream opened')
+    })
+    this.networking.on('stream-closed', stream => {
+      log.trace({ remoteType: stream.remoteType, remoteAddress: stream.remoteAddress }, 'replication stream closed')
+    })
 
     // Set in ready.
     this.db = null
