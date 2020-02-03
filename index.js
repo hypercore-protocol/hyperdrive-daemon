@@ -6,6 +6,7 @@ const sub = require('subleveldown')
 const grpc = require('@grpc/grpc-js')
 const bjson = require('buffer-json-encoding')
 const Corestore = require('corestore')
+const HypercoreCache = require('hypercore-cache')
 const SwarmNetworker = require('corestore-swarm-networking')
 const HypercoreProtocol = require('hypercore-protocol')
 
@@ -30,6 +31,11 @@ const STOP_EVENTS = ['SIGINT', 'SIGTERM', 'unhandledRejection', 'uncaughtExcepti
 const WATCH_LIMIT = 300
 const MAX_PEERS = 128
 
+const TOTAL_CACHE_SIZE = 1024 * 1024 * 512
+const CACHE_RATIO = 0.5
+const TREE_CACHE_SIZE = TOTAL_CACHE_SIZE * CACHE_RATIO
+const DATA_CACHE_SIZE = TOTAL_CACHE_SIZE * (1 - CACHE_RATIO)
+
 class HyperdriveDaemon extends EventEmitter {
   constructor (opts = {}) {
     super()
@@ -50,7 +56,17 @@ class HyperdriveDaemon extends EventEmitter {
       storage: path => this._storageProvider(`${this.storage}/cores/${path}`),
       sparse: true,
       // Collect networking statistics.
-      stats: true
+      stats: true,
+      cache: {
+        data: new HypercoreCache({
+          maxByteSize: DATA_CACHE_SIZE,
+          estimateSize: val => val.length
+        }),
+        tree: new HypercoreCache({
+          maxByteSize: TREE_CACHE_SIZE,
+          estimateSize: val => 40
+        })
+      }
     }
     this.corestore = new Corestore(corestoreOpts.storage, corestoreOpts)
 
