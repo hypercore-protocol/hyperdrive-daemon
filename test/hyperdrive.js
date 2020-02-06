@@ -370,7 +370,7 @@ test('can create a diff stream on a remote hyperdrive', async t => {
       { type: 'unmount', name: 'd2' }
     ])
     await validate(diff4, [
-      { type: 'mount', name: 'd2' }
+      { type: 'mount', name: 'd2', key: drive2.key }
     ])
 
     await drive1.close()
@@ -393,6 +393,7 @@ test('can create a diff stream on a remote hyperdrive', async t => {
       stream.on('data', ({ type, name, value }) => {
         t.same(name, expected[seen].name)
         t.same(type, expected[seen].type)
+        if (type === 'mount') t.same(value.mount.key, expected[seen].key)
         seen++
       })
     })
