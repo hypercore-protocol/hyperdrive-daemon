@@ -36,7 +36,7 @@
     "google-protobuf": "^3.8.0",
     "hypercore-cache": "^1.0.2",
     "hypercore-default-storage": "^1.0.0",
-    "hyperdrive": "^10.8.4",
+    "hyperdrive": "^10.8.10",
     "hyperdrive-daemon-client": "beta",
     "level": "^5.0.0",
     "level-mem": "^5.0.1",

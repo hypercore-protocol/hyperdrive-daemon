@@ -44,6 +44,11 @@ exports.builder = {
     description: '(Beta Only) Report non-confidential usage statistics to the Hyperdrive team.',
     type: 'boolean',
     default: true
+  },
+  'no-announce': {
+    description: 'Never announce read-only drives on the swarm by default.',
+    type: 'boolean',
+    default: false
   }
 }
 

@@ -47,8 +47,9 @@ class HyperdriveDaemon extends EventEmitter {
     this.port = opts.port || constants.port
     this.memoryOnly = !!opts.memoryOnly
     this.telemetryEnabled = !!opts.telemetry
+    this.noAnnounce = !!opts.noAnnounce
 
-    log.info('memory only?', this.memoryOnly, 'telemetry enabled?', this.telemetryEnabled)
+    log.info('memory only?', this.memoryOnly, 'telemetry enabled?', this.telemetryEnabled, 'no announce?', this.noAnnounce)
     this._storageProvider = this.memoryOnly ? require('random-access-memory') : require('hypercore-default-storage')
     this._dbProvider = this.memoryOnly ? require('level-mem') : require('level')
 
@@ -310,6 +311,10 @@ function extractArguments () {
       telemetry: {
         boolean: true,
         default: true
+      },
+      'no-announce': {
+        boolean: true,
+        default: false
       }
     })
     .argv

@@ -23,7 +23,8 @@ async function create (numServers, opts) {
   })
 
   for (let i = 0; i < numServers; i++) {
-    const { client, daemon, cleanup, dir } = await createInstance(i, BASE_PORT + i, [BOOTSTRAP_URL], opts)
+    const instanceOpts = Array.isArray(opts) ? opts[i] || {} : opts
+    const { client, daemon, cleanup, dir } = await createInstance(i, BASE_PORT + i, [BOOTSTRAP_URL], instanceOpts)
     clients.push(client)
     daemons.push(daemon)
     cleanups.push(cleanup)
@@ -63,6 +64,7 @@ async function createInstance (id, port, bootstrap, opts = {}) {
     bootstrap,
     port,
     memoryOnly: !!opts.memoryOnly,
+    noAnnounce: !!opts.noAnnounce,
     metadata: {
       token,
       endpoint

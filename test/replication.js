@@ -279,6 +279,48 @@ test('can get networking stats for multiple mounts', async t => {
   t.end()
 })
 
+test('no-announce mode prevents discovery for read-only hyperdrives', async t => {
+  const { clients, daemons, cleanup } = await create(3, [null, { noAnnounce: true }, { noAnnounce: true }])
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+  const thirdClient = clients[2]
+
+  try {
+    const drive1 = await firstClient.drive.get()
+    await drive1.configureNetwork({ lookup: true, announce: true })
+
+    const drive2 = await secondClient.drive.get({ key: drive1.key })
+
+    await drive1.writeFile('hello', 'world')
+
+    // 100 ms delay for replication.
+    await delay(100)
+
+    const replicatedContent = await drive2.readFile('hello')
+    t.same(replicatedContent, Buffer.from('world'))
+
+    await daemons[0].stop()
+
+    const drive3 = await thirdClient.drive.get({ key: drive1.key })
+    await delay(100)
+
+    var error = null
+    try {
+      const shouldNotHave = await drive3.readFile('hello')
+      t.false(shouldNotHave)
+    } catch (err) {
+      // This should error because the thirdClient cannot discover the secondClient
+      error = err
+    }
+    t.true(error)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 // This will hang until we add timeouts to the hyperdrive reads.
 test.skip('can continue getting drive info after remote content is cleared (no longer available)', async t => {
   const { clients, cleanup, daemons } = await create(2)
