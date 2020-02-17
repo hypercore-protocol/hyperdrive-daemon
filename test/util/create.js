@@ -34,7 +34,7 @@ async function create (numServers, opts) {
   return { clients, daemons, cleanup, dirs }
 
   async function cleanup (opts) {
-    for (let cleanupInstance of cleanups) {
+    for (const cleanupInstance of cleanups) {
       await cleanupInstance(opts)
     }
     await bootstrapper.destroy()

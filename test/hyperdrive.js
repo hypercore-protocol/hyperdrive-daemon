@@ -11,11 +11,9 @@ test('can write/read a file from a remote hyperdrive', async t => {
     t.true(drive.key)
     t.same(drive.id, 1)
 
-    const version = await drive.version()
-
     await drive.writeFile('hello', 'world')
 
-    const contents = await drive.readFile('hello', { encoding: 'utf8'})
+    const contents = await drive.readFile('hello', { encoding: 'utf8' })
     t.same(contents, 'world')
 
     await drive.close()
@@ -59,8 +57,6 @@ test('can write/read file metadata alongside a file', async t => {
     t.true(drive.key)
     t.same(drive.id, 1)
 
-    const version = await drive.version()
-
     await drive.writeFile('hello', 'world', {
       metadata: {
         hello: Buffer.from('world')
@@ -86,8 +82,6 @@ test('can update file metadata', async t => {
     const drive = await client.drive.get()
     t.true(drive.key)
     t.same(drive.id, 1)
-
-    const version = await drive.version()
 
     await drive.writeFile('hello', 'world', {
       metadata: {
@@ -122,12 +116,10 @@ test('can delete metadata', async t => {
     t.true(drive.key)
     t.same(drive.id, 1)
 
-    const version = await drive.version()
-
     await drive.writeFile('hello', 'world', {
       metadata: {
-        'first': Buffer.from('first'),
-        'second': Buffer.from('second')
+        first: Buffer.from('first'),
+        second: Buffer.from('second')
       }
     })
 
@@ -200,7 +192,7 @@ test('reading an invalid file propogates error', async t => {
 
     try {
       const readStream = await drive.createReadStream('hello', { start: 5, length: Buffer.from('there').length + 1 })
-      const content = await new Promise((resolve, reject) => {
+      await new Promise((resolve, reject) => {
         collectStream(readStream, (err, bufs) => {
           if (err) return reject(err)
           return resolve(Buffer.concat(bufs))
@@ -280,7 +272,7 @@ test('can list a directory from a remote hyperdrive with stats', async t => {
 
     const objs = await drive.readdir('', { includeStats: true })
     t.same(objs.length, 3)
-    for (let { name, stat, mount, innerPath } of objs) {
+    for (const { name, stat, mount, innerPath } of objs) {
       t.true(expected.has(name))
       t.same(stat.mode, 33188)
       t.true(mount.key.equals(drive.key))
@@ -317,7 +309,7 @@ test('can list a large directory from a remote hyperdrive with stats', async t =
     t.same(objs.length, NUM_FILES)
     let statError = null
     let mountError = null
-    for (let { name, stat, mount } of objs) {
+    for (const { stat, mount } of objs) {
       if (stat.mode !== 33188) statError = 'stat mode is incorrect'
       if (!mount.key.equals(drive.key)) mountError = 'mount key is not the drive key'
     }
@@ -333,7 +325,6 @@ test('can list a large directory from a remote hyperdrive with stats', async t =
   t.end()
 })
 
-
 test('can create a diff stream on a remote hyperdrive', async t => {
   const { client, cleanup } = await createOne()
 
@@ -348,7 +339,6 @@ test('can create a diff stream on a remote hyperdrive', async t => {
     await drive1.mount('d2', { key: drive2.key })
     const v3 = await drive1.version()
     await drive1.unmount('d2')
-    const v4 = await drive1.version()
 
     const diff1 = await drive1.createDiffStream()
     const checkout = await drive1.checkout(v2)
@@ -362,7 +352,7 @@ test('can create a diff stream on a remote hyperdrive', async t => {
       { type: 'put', name: 'hello' }
     ])
     await validate(diff2, [
-      { type: 'put', name: 'goodbye'}
+      { type: 'put', name: 'goodbye' }
     ])
     await validate(diff3, [
       // TODO: The first is a false positive.
@@ -539,7 +529,7 @@ test('watch cleans up after unexpected close', async t => {
   try {
     const drive = await client.drive.get()
 
-    const unwatch = drive.watch('', () => {
+    drive.watch('', () => {
       triggered++
     })
 
@@ -623,7 +613,10 @@ test('drives are writable after a daemon restart', async t => {
 
     await cleanup({ persist: true })
 
-    var { client, cleanup } = await createOne({ dir })
+    const newDaemon = await createOne({ dir })
+    client = newDaemon.client
+    cleanup = newDaemon.cleanup
+
     drive = await client.drive.get({ key: driveKey })
     t.same(await drive.readFile('a'), Buffer.from('a'))
     await drive.writeFile('b', 'b')
@@ -637,12 +630,11 @@ test('drives are writable after a daemon restart', async t => {
 })
 
 test('mounts are writable in memory-only mode', async t => {
-  var { dir, client, cleanup } = await createOne({ memoryOnly: true })
+  var { client, cleanup } = await createOne({ memoryOnly: true })
 
   try {
     var drive = await client.drive.get()
     var mount = await client.drive.get()
-    const driveKey = drive.key
     const mountKey = mount.key
 
     await drive.writeFile('a', 'a')
@@ -668,7 +660,7 @@ test('mounts are writable in memory-only mode', async t => {
 })
 
 test('can get network configuration alongside drive stats', async t => {
-  var { dir, client, cleanup } = await createOne({ memoryOnly: true })
+  var { client, cleanup } = await createOne({ memoryOnly: true })
 
   try {
     const drive1 = await client.drive.get()
@@ -704,7 +696,6 @@ test.onFinish(() => {
     process.exit(0)
   }, 100)
 })
-
 
 function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))

@@ -1,5 +1,4 @@
 const p = require('path')
-const { spawn } = require('child_process')
 
 const mkdirp = require('mkdirp')
 const pm2 = require('pm2')
@@ -57,7 +56,7 @@ async function start (opts = {}) {
     autorestart: false
   }
 
-  if (!!opts.foreground) {
+  if (opts.foreground) {
     return startForeground(description, opts)
   } else {
     return startDaemon(description, opts)

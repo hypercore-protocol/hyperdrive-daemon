@@ -24,7 +24,7 @@ exports.builder = {
     alias: 'U'
   },
   group: {
-    description: 'User that should own the ${constants.mountpoint} directory',
+    description: `User that should own the ${constants.mountpoint} directory`,
     type: 'string',
     default: process.getegid(),
     alias: 'G'
@@ -87,7 +87,7 @@ exports.handler = async function (argv) {
   }
 
   function onerror (err) {
-    console.error(chalk.red(`Could not configure FUSE.`))
+    console.error(chalk.red('Could not configure FUSE.'))
     if (err) console.error(chalk.red(err))
   }
 }

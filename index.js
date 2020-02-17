@@ -67,7 +67,8 @@ class HyperdriveDaemon extends EventEmitter {
           maxByteSize: TREE_CACHE_SIZE,
           estimateSize: val => 40
         })
-      }
+      },
+      ifAvailable: true
     }
     this.corestore = new Corestore(corestoreOpts.storage, corestoreOpts)
 
@@ -147,7 +148,7 @@ class HyperdriveDaemon extends EventEmitter {
       ...this.opts,
       watchLimit: this.opts.watchLimit || WATCH_LIMIT
     })
-    //this.profiles = new ProfilesManager(this.drives, this.opts)
+    // this.profiles = new ProfilesManager(this.drives, this.opts)
     this.fuse = hyperfuse ? new FuseManager(this.drives, dbs.fuse, this.opts) : null
     this.drives.on('error', err => this.emit('error', err))
     if (this.fuse) this.fuse.on('error', err => this.emit('error', err))
@@ -166,7 +167,7 @@ class HyperdriveDaemon extends EventEmitter {
 
     await Promise.all([
       this.drives.ready(),
-      this.fuse ? this.fuse.ready() : Promise.resolve(),
+      this.fuse ? this.fuse.ready() : Promise.resolve()
     ])
 
     this._isReady = true
@@ -178,7 +179,7 @@ class HyperdriveDaemon extends EventEmitter {
       hyperdrive: require('hyperdrive/package.json').version
     }
     if (this.fuse) {
-      this._versions.fuseNative = require('fuse-native/package.json').version,
+      this._versions.fuseNative = require('fuse-native/package.json').version
       this._versions.hyperdriveFuse = require('hyperdrive-fuse/package.json').version
     }
   }

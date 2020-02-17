@@ -1,8 +1,5 @@
-const p = require('path')
-
 const ora = require('ora')
 const chalk = require('chalk')
-const mkdirp = require('mkdirp')
 
 const constants = require('hyperdrive-daemon-client/lib/constants')
 const { start } = require('../manager')
@@ -54,7 +51,7 @@ exports.builder = {
 
 exports.handler = async function (argv) {
   if (argv.telemetry) displayTelemetryNotice()
-  let spinner = ora(chalk.blue('Starting the Hyperdrive daemon...')).start()
+  const spinner = ora(chalk.blue('Starting the Hyperdrive daemon...')).start()
   try {
     const { opts } = await start(argv)
     return onsuccess(opts)

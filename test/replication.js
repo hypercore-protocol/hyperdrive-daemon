@@ -1,5 +1,4 @@
 const test = require('tape')
-const hypercoreCrypto = require('hypercore-crypto')
 const { create } = require('./util/create')
 
 test('can replicate a single drive between daemons', async t => {
@@ -52,7 +51,9 @@ test('can download a directory between daemons', async t => {
     // 100 ms delay for replication.
     await delay(100)
 
-    var { stats } = await drive2.stats()
+    const d2Stats1 = await drive2.stats()
+    stats = d2Stats1.stats
+
     // Since there has not been a content read yet, the stats will not report the latest content length.
     t.same(stats[0].content.totalBlocks, 0)
 
@@ -64,12 +65,14 @@ test('can download a directory between daemons', async t => {
     // TODO: Uncomment after hypercore bug fix.
     // t.same(fileStats.get('/a/1').downloadedBlocks, 0)
 
-    const handle = await drive2.download('a')
+    await drive2.download('a')
 
     // 200 ms delay for download to complete.
     await delay(200)
 
-    var { stats } = await drive2.stats()
+    const d2Stats2 = await drive2.stats()
+    stats = d2Stats2.stats
+
     fileStats = await drive2.fileStats('a')
     t.same(stats[0].content.totalBlocks, 5)
     t.same(stats[0].content.downloadedBlocks, 5)
@@ -138,13 +141,12 @@ test('can cancel an active download', async t => {
 })
 
 test('can replicate many mounted drives between daemons', async t => {
-  const { clients, daemons, cleanup } = await create(2)
+  const { clients, cleanup } = await create(2)
   console.time('many-mounts')
   const firstClient = clients[0]
   const secondClient = clients[1]
-  const secondDaemon = daemons[1]
 
-  const NUM_MOUNTS = 20
+  const NUM_MOUNTS = 15
 
   try {
     const mounts = await createFirst()
@@ -164,10 +166,10 @@ test('can replicate many mounted drives between daemons', async t => {
     for (let i = 0; i < NUM_MOUNTS; i++) {
       const key = '' + i
       const mountDrive = await firstClient.drive.get()
+      await mountDrive.configureNetwork({ lookup: true, announce: true })
       await rootDrive.mount(key, { key: mountDrive.key })
       await mountDrive.writeFile(key, key)
-      await mountDrive.configureNetwork({ lookup: true, announce: true })
-      mounts.push({ key: mountDrive.key, path: key + '/' + key, content: key })
+      mounts.push({ key: mountDrive.key, path: key + '/' + key, content: key, drive: mountDrive })
     }
     return mounts
   }
@@ -175,14 +177,16 @@ test('can replicate many mounted drives between daemons', async t => {
   async function createSecond (mounts) {
     const rootDrive = await secondClient.drive.get()
     for (const { key, content } of mounts) {
-      await secondClient.drive.get({ key })
       await rootDrive.mount(content, { key })
     }
     return rootDrive
   }
 
   async function validate (mounts, secondRoot) {
-    const contents = await Promise.all(mounts.map(({ path, content }) => secondRoot.readFile(path)))
+    const contents = await Promise.all(mounts.map(async ({ path, content }) => {
+      const contents = await secondRoot.readFile(path)
+      return contents
+    }))
     for (let i = 0; i < mounts.length; i++) {
       t.same(contents[i], Buffer.from(mounts[i].content))
     }
@@ -236,15 +240,15 @@ test('can get networking stats for multiple mounts', async t => {
 
     await firstRoot.mount('a', { key: firstMount1.key })
     await firstRoot.mount('b', { key: firstMount2.key })
+    await delay(100)
 
     await firstMount2.writeFile('hello', 'world')
 
     const firstStats = await firstClient.drive.allStats()
     t.same(firstStats.length, 3)
-    for (const mountStats of firstStats) {
-      t.same(mountStats.length, 1)
-      t.same(mountStats[0].metadata.uploadedBytes, 0)
-    }
+    const rootStats = firstStats[0]
+    t.same(rootStats.length, 3)
+    t.same(rootStats[0].metadata.uploadedBytes, 0)
 
     const secondRoot = await secondClient.drive.get()
     await secondClient.drive.get({ key: firstMount2.key })
@@ -321,6 +325,57 @@ test('no-announce mode prevents discovery for read-only hyperdrives', async t =>
   t.end()
 })
 
+test('published drives are swarmed by both reader and writer', async t => {
+  const { clients, daemons, cleanup } = await create(3)
+  const serviceOwner = clients[0]
+  const groupOwner = clients[1]
+  const groupReader = clients[2]
+
+  try {
+    const service = await serviceOwner.drive.get()
+    await service.writeFile('a/1', 'a/1')
+    await service.writeFile('a/2', 'a/2')
+    await service.writeFile('a/3', 'a/3')
+
+    // The service owner announces the service.
+    await service.configureNetwork({ lookup: true, announce: true })
+
+    const profile = await groupOwner.drive.get()
+    const group = await groupOwner.drive.get()
+
+    // The group owner announces the group.
+    await group.configureNetwork({ announce: true, lookup: true })
+    await delay(100)
+
+    await group.mount('profile', { key: profile.key })
+    await profile.mount('service', { key: service.key })
+
+    const reader = await groupReader.drive.get({ key: group.key })
+
+    // The profile should be discoverable through the group without a separate announce.
+    const profileRootDir = await reader.readdir('profile')
+    t.same(profileRootDir, ['service'])
+
+    // The service should dynamically lookup then announce.
+    try {
+      const serviceStat = await reader.stat('profile/service/a')
+      t.true(serviceStat)
+    } catch (err) {
+      t.error(err)
+    }
+
+    // Killing the second daemon should still let us get service stats through the serviceOwner
+    await daemons[1].stop()
+    const serviceDir = await reader.readdir('profile/service/a')
+    t.same(serviceDir, ['3', '1', '2'])
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 // This will hang until we add timeouts to the hyperdrive reads.
 test.skip('can continue getting drive info after remote content is cleared (no longer available)', async t => {
   const { clients, cleanup, daemons } = await create(2)
@@ -348,7 +403,6 @@ test.skip('can continue getting drive info after remote content is cleared (no l
     t.fail(err)
   }
 
-
   await cleanup()
   t.end()
 
@@ -356,7 +410,7 @@ test.skip('can continue getting drive info after remote content is cleared (no l
     const metadataKeySet = new Set(metadataKeys.map(k => k.toString('hex')))
     console.log('metadataKeySet:', metadataKeySet)
     console.log('external cores:', store._externalCores)
-    for (const [dkeyString, core] of store._externalCores) {
+    for (const [, core] of store._externalCores) {
       if (metadataKeySet.has(core.key.toString('hex'))) continue
       await new Promise((resolve, reject) => {
         console.log('CLEARING CORE:', core)
