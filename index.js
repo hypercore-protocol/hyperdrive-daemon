@@ -72,34 +72,22 @@ class HyperdriveDaemon extends EventEmitter {
     }
     this.corestore = new Corestore(corestoreOpts.storage, corestoreOpts)
 
-    const networkOpts = {
+    this._networkOpts = {
       announceLocalAddress: true
     }
     const bootstrapOpts = opts.bootstrap || constants.bootstrap
 
     if (bootstrapOpts && bootstrapOpts.length && bootstrapOpts[0] !== '') {
       if (bootstrapOpts === false || bootstrapOpts[0] === 'false') {
-        networkOpts.bootstrap = false
+        this._networkOpts.bootstrap = false
       } else {
-        networkOpts.bootstrap = bootstrapOpts
+        this._networkOpts.bootstrap = bootstrapOpts
       }
     }
-    networkOpts.maxPeers = opts.maxPeers || MAX_PEERS
-    this.networking = new SwarmNetworker(this.corestore, networkOpts)
-    this.networking.on('replication-error', err => {
-      log.trace({ error: err.message, stack: err.stack }, 'replication error')
-      if (err.message && err.message.indexOf('Remote signature could not be verified') !== -1) {
-        log.warn('Remote signature verification is failing -- one of your hypercores appears to be forked or corrupted.')
-      }
-    })
-    this.networking.on('stream-opened', stream => {
-      log.trace({ remoteType: stream.remoteType, remoteAddress: stream.remoteAddress }, 'replication stream opened')
-    })
-    this.networking.on('stream-closed', stream => {
-      log.trace({ remoteType: stream.remoteType, remoteAddress: stream.remoteAddress }, 'replication stream closed')
-    })
+    this._networkOpts.maxPeers = opts.maxPeers || MAX_PEERS
 
     // Set in ready.
+    this.networking = null
     this.db = null
     this.drives = null
     this.fuse = null
@@ -144,21 +132,32 @@ class HyperdriveDaemon extends EventEmitter {
       profiles: sub(this.db, 'profiles', { valueEncoding: 'json' })
     }
 
+    await this.corestore.ready()
+
+    const seed = this.corestore._deriveSecret(NAMESPACE, 'replication-keypair')
+    log.info({ seed: seed.toString('hex') }, 'creating replication keypair')
+    this._networkOpts.keyPair = HypercoreProtocol.keyPair(seed)
+    this.networking = new SwarmNetworker(this.corestore, this._networkOpts)
+    this.networking.on('replication-error', err => {
+      log.trace({ error: err.message, stack: err.stack }, 'replication error')
+      if (err.message && err.message.indexOf('Remote signature could not be verified') !== -1) {
+        log.warn('Remote signature verification is failing -- one of your hypercores appears to be forked or corrupted.')
+      }
+    })
+    this.networking.on('stream-opened', stream => {
+      log.trace({ remoteType: stream.remoteType, remoteAddress: stream.remoteAddress }, 'replication stream opened')
+    })
+    this.networking.on('stream-closed', stream => {
+      log.trace({ remoteType: stream.remoteType, remoteAddress: stream.remoteAddress }, 'replication stream closed')
+    })
+
     this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, {
       ...this.opts,
       watchLimit: this.opts.watchLimit || WATCH_LIMIT
     })
-    // this.profiles = new ProfilesManager(this.drives, this.opts)
     this.fuse = hyperfuse ? new FuseManager(this.drives, dbs.fuse, this.opts) : null
     this.drives.on('error', err => this.emit('error', err))
     if (this.fuse) this.fuse.on('error', err => this.emit('error', err))
-
-    await this.corestore.ready()
-    const seed = this.corestore._deriveSecret(NAMESPACE, 'replication-keypair')
-    log.info({ seed: seed.toString('hex') }, 'creating replication keypair')
-    this.networking.listen({
-      keyPair: HypercoreProtocol.keyPair(seed)
-    })
 
     if (this.telemetryEnabled) {
       this.telemetry = new TelemetryManager(this)

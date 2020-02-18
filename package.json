@@ -30,7 +30,7 @@
     "chalk": "^2.4.2",
     "collect-stream": "^1.2.1",
     "corestore": "^5.0.0",
-    "corestore-swarm-networking": "^4.0.0",
+    "corestore-swarm-networking": "^5.0.0",
     "dat-encoding": "^5.0.1",
     "fs-extra": "^7.0.1",
     "google-protobuf": "^3.8.0",
