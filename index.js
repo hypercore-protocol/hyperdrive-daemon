@@ -212,6 +212,14 @@ class HyperdriveDaemon extends EventEmitter {
           rsp.setClientversion(this._versions.client)
           rsp.setSchemaversion(this._versions.schema)
           rsp.setHyperdriveversion(this._versions.hyperdrive)
+
+          const swarm = this.networking && this.networking.swarm
+          if (swarm) {
+            const remoteAddress = swarm.remoteAddress()
+            rsp.setHolepunchable(swarm.holepunchable())
+            rsp.setRemoteaddress(remoteAddress ? remoteAddress.host + ':' + remoteAddress.port : '')
+          }
+
           if (this._versions.fuseNative) rsp.setFusenativeversion(this._versions.fuseNative)
           if (this._versions.hyperdriveFuse) rsp.setHyperdrivefuseversion(this._versions.hyperdriveFuse)
         }
