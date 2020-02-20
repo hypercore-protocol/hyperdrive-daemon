@@ -1,20 +1,125 @@
 # ⛰️ hyperdrive-daemon
-*Note: This is currently a prerelease based on the [`v10`](https://github.com/mafintosh/hyperdrive/tree/v10) branch of Hyperdrive. It should be relatively stable, but expect some roughness around the edges.*
+[![Build Status](https://travis-ci.com/andrewosh/hyperdrive-daemon.svg?branch=master)](https://travis-ci.com/andrewosh/hyperdrive-daemon)
 
-**Newer Note: We've done a major rehaul of the CLI and FUSE directory structure which is not yet reflected in the README below. Docs incoming shortly, but if you want to play now you'll need to poke around a bit.**
+The Hyperdrive daemon helps you create, share, and manage Hyperdrives through a persistent process running on your computer, without having to deal with storage management or networking configuration. It provides both a gRPC API (see [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client)) for interacting with remote drives, and an optional FUSE interface for mounting drives as directories in your local filesystem.
 
-A daemon for creating, storing and sharing Hyperdrives. Provides both a gRPC API (see [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client)), and an optional FUSE interface for mounting drives as directories.
+#### Features
+* __Hyperswarm Networking__: Hyperdrives are announced and discovered using the [Hyperswarm DHT](https://github.com/hyperswarm/hyperswarm)
+* __Easy Storage__: All your Hyperdrives are stored in a single spot, the `~/.hyperdrive/storage` directory.
+* __gRPC API__: The daemon exposes an API for managing remote Hyperdrives over gRPC. We currently have a [NodeJS client](https://github.com/andrewosh/hyperdrive-daemon-client).
+* __FUSE support__: If you're using Linux or Mac, you can mount Hyperdrives as directories and work with them using standard filesystem syscalls.
+* __CLI Tools__: The `hyperdrive` CLI supports a handful of commands for managing the daemon, creating/sharing drives, getting statistics, and augmenting the FUSE interface to support Hyperdrive-specific functions (like mounts).
+* __Persistence__: Networking configuration info is stored in a [Level](https://github.com/level/level) instance, so your drives will reconnect to the network automatically when the daemon's restarted.
+* __PM2 Process Management__: We use [PM2](https://github.com/Unitech/pm2) to manage the daemon process. Separately installing the PM2 CLI gives you access to extra monitoring, and support for installing the Hyperdrive daemon as a system daemon.
 
-If you choose to use FUSE, the Hyperdrive daemon lets your mount Hyperdrives as directories on both OSX and Linux. The daemon requires all users to have a private "root" drive, into which additional subdrives can be mounted and shared with others. After starting the daemon, you can create your root drive as follows:
+#### :warning: Beta Notice :warning:
+During the beta period, we'll be collecting simple telemetry (such as memory usage and DHT info) by default. The telemetry updates do not contain any Hyperdrive keys, and you can see exactly what we send [here](https://github.com/andrewosh/hyperdrive-daemon/blob/master/lib/telemetry.js).
+
+If you're not comfortable sharing these stats, you can disable telemetry by starting the daemon with the `--no-telemetry` flag.
+
+## Installation
+```
+npm i hyperdrive-daemon@beta -g
+```
+*Note: Make sure you're installing the `@beta` version for now!*
+
+### Starting the daemon
+
+After installing/configuring, you'll need to start the daemon before running any other commands. To do this, first pick a storage directory for your mounted Hyperdrives. By default, the daemon will use `~/.hyperdrive/storage`.
+
+```
+❯ hyperdrive start
+Daemon started at http://localhost:3101
+```
+
+If you want to stop the daemon, you can run:
+```
+❯ hyperdrive stop
+The Hyperdrive daemon has been stopped.
+```
+
+### Checking the status
+
+After it's been started, you can check if the daemon's running (and get lots of useful information) with the `status` command:
+```
+❯ hyperdrive status
+The Hyperdrive daemon is running:
+
+  API Version:             0
+  Daemon Version:          1.7.15
+  Client Version:          1.7.6
+  Schema Version:          1.6.5
+  Hyperdrive Version:      10.8.15
+  Fuse Native Version:     2.2.1
+  Hyperdrive Fuse Version: 1.2.14
+
+  Holepunchable:           true
+  Remote Address:          194.62.216.174:35883
+
+  Uptime:                  0 Days 1 Hours 6 Minutes 2 Seconds
+```
+
+## API
+The daemon exposes a gRPC API for interacting with remote Hyperdrives. [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client) is a Node client that you can use to interact with the API. If you'd like to write a client in another language, check out the schema definitions in [`hyperdrive-schemas`](https://github.com/andrewosh/hyperdrive-schemas)
+
+## CLI
+
+Hypermount provides an gRPC interface for mounting, unmounting, and providing status information about all current mounts. There's also a bundled CLI tool which wraps the gRPC API and provides the following commands:
+
+### Basic Commands 
+#### `hyperdrive setup`
+Performs a one-time configuration step that installs FUSE. This command will prompt you for `sudo`.
+
+#### `hyperdrive start`
+Start the Hyperdrive daemon.
+
+Options include:
+```
+  --bootstrap ['host:port', 'host:port', ...] // Optional, alternative bootstrap servers
+  --storage   /my/storage/dir                 // The storage directory. Defaults to ~/.hyperdrive/storage
+  --log-level info                            // Logging level
+  --port      3101                            // The port gRPC will bind to.
+```
+
+#### `hyperdrive status`
+Gives the current status of the daemon.
+
+#### `hyperdrive stop`
+Stop the daemon
+
+## FUSE
+With FUSE, the Hyperdrive daemon lets your mount Hyperdrives as directories on both OSX and Linux. To use FUSE, you need to run the `setup` command before you start the daemon the first time:
+
+### Setup
+The setup command installs native, prebuilt FUSE bindings. We currently only provide bindings for OSX and Linux. The setup step is the only part of installation that requires `sudo` access:
+```
+❯ hyperdrive setup
+Configuring FUSE...
+[sudo] password for andrewosh:
+Successfully configured FUSE!
+```
+
+You should only need to perform this step once (it will persist across restarts). In order to make sure that the setup step completed successfully, run the `fs status` command:
+```
+❯ hyperdrive fs status
+FUSE Status:
+  Available: true
+  Configured: true
+```
+
+If FUSE is both available and configured, then you're ready to continue with mounting your top-level, private drive!
+
+### Usage
+The daemon requires all users to have a private "root" drive, into which additional subdrives can be mounted and shared with others. Think of this root drive as the Home directory on your computer (where you might have Documents, Photos, Videos directories, for example). After starting the daemon, you can create your root drive as follows:
 ```
 ❯ hyperdrive fs mount
 Mounted a drive with the following info:
 
-  Mountpoint: /home/foo/Hyperdrive 
-  Key:        49c5b9e4ac75a0f0b00ab911975837dd0c8d429512a13413fe2dad768fc9a0f2 
-  Seeding:    false
+  Mountpoint: /home/andrewosh/Hyperdrive 
+  Key:        6490153bc73e86563a3794a9e796be49441381ff27a6423acb7c90e464072bed 
+  Published:  false
 
-This drive is private by default. To publish it, run `hyperdrive fs publish ~/Hyperdrive` 
+This drive is private by default. To publish it, run `hyperdrive fs publish /home/andrewosh/Hyperdrive` 
 ```
 
 You likely won't want to publish or share your root drive with others, but you can create shareable subdrives using the same command:
@@ -54,66 +159,6 @@ Or:
 ❯ ls ~/Hyperdrive/home/a_friends_videos 
 vid.mkv
 ```
-
-## Installation
-```
-npm i hyperdrive-daemon@beta -g
-```
-
-### Setup
-
-When you first install Hypermount, you'll need to perform a setup step that will install native, prebuilt FUSE bindings. We currently only provide bindings for OSX and Linux. The setup step is the only step that requires `sudo`.
-```
-❯ hyperdrive setup
-Configuring FUSE...
-[sudo] password for andrewosh:
-Successfully configured FUSE!
-```
-
-You should only need to perform this step once (it will persist across restarts).
-
-### Starting the Daemon
-
-After installing/configuring, you'll need to start the daemon before running any other commands. To do this, first pick a storage directory for your mounted Hyperdrives. By default, the daemon will use `~/.hyperdrive/storage`.
-
-```
-❯ hyperdrive start
-Daemon started at http://localhost:3101
-```
-
-If you want to stop the daemon, you can run:
-```
-❯ hyperdrive stop
-The Hyperdrive daemon has been stopped.
-```
-
-## API
-The daemon exposes a gRPC API for interacting with remote Hyperdrives. [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client) is a Node client that you can use to interact with the API. If you'd like to write a client in another language, check out the schema definitions in [`hyperdrive-schemas`](https://github.com/andrewosh/hyperdrive-schemas)
-
-## CLI
-
-Hypermount provides an gRPC interface for mounting, unmounting, and providing status information about all current mounts. There's also a bundled CLI tool which wraps the gRPC API and provides the following commands:
-
-### Basic Commands 
-#### `hyperdrive setup`
-Performs a one-time configuration step that installs FUSE. This command will prompt you for `sudo`.
-
-#### `hyperdrive start`
-Start the Hyperdrive daemon.
-
-Options include:
-```
-  --bootstrap ['host:port', 'host:port', ...] // Optional, alternative bootstrap servers
-  --storage   /my/storage/dir                 // The storage directory. Defaults to ~/.hyperdrive/storage
-  --log-level info                            // Logging level
-  --port      3101                            // The port gRPC will bind to.
-```
-
-#### `hyperdrive status`
-Gives the current status of the daemon.
-
-#### `hyperdrive stop`
-Stop the daemon
 
 ### FUSE Commands
 All filesystem-related commands are accessed through the `fs` subcommand. 
