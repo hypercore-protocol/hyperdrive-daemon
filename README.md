@@ -91,7 +91,7 @@ Gives the current status of the daemon, as well as version/networking info.
 Stop the daemon.
 
 ## FUSE
-With FUSE, the Hyperdrive daemon lets your mount Hyperdrives as directories on both OSX and Linux. To use FUSE, you need to run the `setup` command before you start the daemon the first time:
+Using FUSE, the Hyperdrive daemon lets your mount Hyperdrives as normal filesystem directories on both OSX and Linux. To use FUSE, you need to run the `setup` command before you start the daemon the first time:
 
 ### Setup
 The setup command installs native, prebuilt FUSE bindings. We currently only provide bindings for OSX and Linux. The setup step is the only part of installation that requires `sudo` access:
@@ -113,26 +113,11 @@ FUSE Status:
 If FUSE is both available and configured, then you're ready to continue with mounting your top-level, private drive!
 
 ### Usage
-The daemon requires all users to have a private "root" drive, into which additional subdrives can be mounted and shared with others. Think of this root drive as the Home directory on your computer (where you might have Documents, Photos, or Videos directories, for example). You're probably never going to want to share this directory with others, but you can create mounted sub-Hyperdrives within it that you can share.
+The daemon requires all users to have a private "root" drive, into which additional subdrives can be mounted and shared with others. You're probably never going to want to share this directory with others, but you can create mounted sub-drives within it that you can share.
 
-#### The `Network` "Magic Folder"
-Within your root drive, you'll see a special directory called `~/Hyperdrive/Network`. This is a virtual directory (it does not actually exist inside the drive), but it provides read-only access to useful information, such as storage/networking stats for any drive in the daemon. Here's what you can do with the `Network` directory:
-
-##### Global Drive Paths
-For any drive that's being announced on the DHT, `~/Hyperdrive/Network/<drive-key>` will contain that drive's contents. This is super useful because these paths will be consistent across all daemon users! If you have an interesting file you want to share over IRC, you can just copy+paste `cat ~/Hyperdrive/Network/<drive-key>/my-interesting-file.txt` into IRC and that command will work for everyone.
-
-##### Storage/Networking Statistics
-Inside `~/Hyperdrive/Network/Stats/<drive-key>` you'll find two files: `storage.json` and `networking.json` containing an assortment of statistics relating to that drive, such as per-file storage usage, current peers, and uploaded/downloaded bytes of the drive's metadata and content feeds.
-
-*Note: `storage.json` is dynamically computed every time the file is read -- if you have a drive containing millions of files, this can be an expensive operation, so be careful.*
-
-Since looking at `networking.json` is a common operation, we provide a shorthand command `hyperdrive fs stats` that prints this file for you. It uses your current working directory to determine the key of the mounted drive you're in.
-
-##### Active Drives
-The `~/Hyperdrive/Network/Active` directory contains symlinks to the `networking.json` stats files for every drive that your daemon is currently announcing. `ls`ing this directory gives you a quick overview of exactly what you're announcing.
+Think of this root drive as the `home` directory on your computer, where you might have Documents, Photos, or Videos directories, for example. You'll likely never want to share your complete Documents folder with someone, but you can create a shareable mounted drive `Documents/coding-project-feb-2020` to share with collaborators on that project. 
 
 #### Basic Mounting
-
 After starting the daemon, you can create your root drive using the `fs mount` command without additional arguments:
 ```
 ❯ hyperdrive fs mount
@@ -192,6 +177,23 @@ Or:
 ❯ ls ~/Hyperdrive/home/a_friends_videos
 vid.mkv
 ```
+
+### The `Network` "Magic Folder"
+
+Within your root drive, you'll see a special directory called `~/Hyperdrive/Network`. This is a virtual directory (it does not actually exist inside the drive), but it provides read-only access to useful information, such as storage/networking stats for any drive in the daemon. Here's what you can do with the `Network` directory:
+
+#### Global Drive Paths
+For any drive that's being announced on the DHT, `~/Hyperdrive/Network/<drive-key>` will contain that drive's contents. This is super useful because these paths will be consistent across all daemon users! If you have an interesting file you want to share over IRC, you can just copy+paste `cat ~/Hyperdrive/Network/<drive-key>/my-interesting-file.txt` into IRC and that command will work for everyone.
+
+#### Storage/Networking Statistics
+Inside `~/Hyperdrive/Network/Stats/<drive-key>` you'll find two files: `storage.json` and `networking.json` containing an assortment of statistics relating to that drive, such as per-file storage usage, current peers, and uploaded/downloaded bytes of the drive's metadata and content feeds.
+
+*Note: `storage.json` is dynamically computed every time the file is read -- if you have a drive containing millions of files, this can be an expensive operation, so be careful.*
+
+Since looking at `networking.json` is a common operation, we provide a shorthand command `hyperdrive fs stats` that prints this file for you. It uses your current working directory to determine the key of the mounted drive you're in.
+
+#### Active Drives
+The `~/Hyperdrive/Network/Active` directory contains symlinks to the `networking.json` stats files for every drive that your daemon is currently announcing. `ls`ing this directory gives you a quick overview of exactly what you're announcing.
 
 ### FUSE Commands
 All filesystem-related commands are accessed through the `fs` subcommand.
