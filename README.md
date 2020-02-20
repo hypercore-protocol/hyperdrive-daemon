@@ -90,6 +90,14 @@ Gives the current status of the daemon, as well as version/networking info.
 #### `hyperdrive stop`
 Stop the daemon.
 
+### Debugging Commands
+If you're testing bug fixes or features, some of these commands might be useful for you.
+
+#### `hyperdrive debug clear`
+Delete all read-only drives from disk. This will clear up storage, and makes it easier to test networking issues during development (as doing a `debug clear` will force you to re-sync test drives when the daemon is restarted).
+
+This command *must not* be run while the daemon is running.
+
 ## FUSE
 Using FUSE, the Hyperdrive daemon lets your mount Hyperdrives as normal filesystem directories on both OSX and Linux. To use FUSE, you need to run the `setup` command before you start the daemon the first time:
 
@@ -228,7 +236,7 @@ CLI options include:
 #### `hyperdrive fs key <mountpoint>`
 Display the drive key for a mounted drive. 
 
-- `mountpoint` must be a subdirectory of `~/Hyperdrive/` and must have been previously mounted with the mount subcommand described above. If `mountpoint` is not specified, the command will use the enclosing mount of your current working directory.
+- `mountpoint` must be a subdirectory of `~/Hyperdrive/`. If `mountpoint` is not specified, the command will use the enclosing mount of your current working directory.
 
 By default, this command will refuse to display the key of your root drive (to dissuade accidentally sharing it). To forcibly display your root drive key, run this command with `--root`.
 
@@ -240,7 +248,7 @@ CLI options include:
 #### `hyperdrive fs publish <mountpoint>`
 Start announcing a drive on the DHT so that it can be shared with other peers.
 
-- `mountpoint` must be a subdirectory of `~/Hyperdrive/` and must have been previously mounted with the mount subcommand described above. If `mountpoint` is not specified, the command will use the enclosing mount of your current working directory.
+- `mountpoint` must be a subdirectory of `~/Hyperdrive/`. If `mountpoint` is not specified, the command will use the enclosing mount of your current working directory.
 
 By default, this command will refuse to publish your root drive (to dissuade accidentally sharing it). To forcibly publish your root drive, run this command with `--root`.
 
@@ -255,9 +263,9 @@ CLI options include:
 #### `hyperdrive fs unpublish <mountpoint>`
 Stop advertising a previously-published subdrive on the network.
 
-- `mountpoint` must be a subdirectory of `~/Hyperdrive/` and must have been previously mounted with the mount subcommand described above. If `mountpoint` is not specified, the command will use the enclosing mount of your current working directory.
+- `mountpoint` must be a subdirectory of `~/Hyperdrive/`. If `mountpoint` is not specified, the command will use the enclosing mount of your current working directory.
 
-*Note: This command will currently not delete the Hyperdrive. Support for this will be added soon.*
+*Note: This command will currently not delete the Hyperdrive from disk. Support for this will be added soon.*
 
 #### `hyperdrive fs stats <mountpoint>`
 Display networking statistics for a drive. This is a shorthand for getting a drive's key with `hyperdrive fs key` and `cat`ing `~/Hyperdrive/Network/Stats/<drive-key>/networking.json`.
