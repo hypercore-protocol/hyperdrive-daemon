@@ -113,9 +113,9 @@ FUSE Status:
 If FUSE is both available and configured, then you're ready to continue with mounting your top-level, private drive!
 
 ### Usage
-The daemon requires all users to have a private "root" drive, into which additional subdrives can be mounted and shared with others. You're probably never going to want to share this directory with others, but you can create mounted sub-drives within it that you can share.
+The daemon requires all users to have a private "root" drive, mounted at `~/Hyperdrive`, into which additional subdrives can be mounted and shared with others.
 
-Think of this root drive as the `home` directory on your computer, where you might have Documents, Photos, or Videos directories, for example. You'll likely never want to share your complete Documents folder with someone, but you can create a shareable mounted drive `Documents/coding-project-feb-2020` to share with collaborators on that project. 
+Think of this root drive as the `home` directory on your computer, where you might have Documents, Photos, or Videos directories. You'll likely never want to share your complete Documents folder with someone, but you can create a shareable mounted drive `Documents/coding-project-feb-2020` to share with collaborators on that project. 
 
 #### Basic Mounting
 After starting the daemon, you can create your root drive using the `fs mount` command without additional arguments:
@@ -178,6 +178,8 @@ Or:
 vid.mkv
 ```
 
+If you ever want to remove a mountpoint, you can use the `hyperdrive fs unmount` command.
+
 ### The `Network` "Magic Folder"
 
 Within your root drive, you'll see a special directory called `~/Hyperdrive/Network`. This is a virtual directory (it does not actually exist inside the drive), but it provides read-only access to useful information, such as storage/networking stats for any drive in the daemon. Here's what you can do with the `Network` directory:
@@ -198,10 +200,17 @@ The `~/Hyperdrive/Network/Active` directory contains symlinks to the `networking
 ### FUSE Commands
 All filesystem-related commands are accessed through the `fs` subcommand.
 
-#### `hyperdrive fs mount`
-(FUSE) mount hyperdrive FS at `~/Hyperdrive`. This includes `~/Hyperdrive/home`, your top-level, private Hyperdrive -- Any drives you'd like to share with others must be created by mounting (a Hyperdrive mount, not a FUSE mount) a subdrive under this path. 
+#### `hyperdrive fs status`
+Get FUSE-related status information. In order to use FUSE, both `available` and `configured` must be true. 
 
-Your root drive will persist across restarts. You can use it as a replacement for your normal home directory!
+*Note: Always be sure to run `hyperdrive setup` and check the FUSE status before doing any additional `fs` commands!*
+
+#### `hyperdrive fs mount`
+Mount your root drive at `~/Hyperdrive`. Any drives you'd like to share with others must be created by mounting (a Hyperdrive mount, not a FUSE mount) a subdrive under this path using the command below. 
+
+Your root drive will persist across restarts. You can use it as a replacement for your normal home directory! 
+
+If you'd ever like to create a fresh root drive, you can force its creation with the `force-create` flag. If this isn't set, your previous root drive will always be reused.
 
 #### `hyperdrive fs mount <mountpoint> [key]`
 (Hyperdrive) mount a subdrive within your root drive.
@@ -209,24 +218,56 @@ Your root drive will persist across restarts. You can use it as a replacement fo
 Newly-created drives are private by default, and can be made available to the network with `hyperdrive fs publish <mountpoint>`.
 
 - `mountpoint` must be a subdirectory of `~/Hyperdrive/home`. 
-- `key` is an optional drive key. If `key` is specified, it will be advertised on the network by default, and your drive will be read-only.
+- `key` is an optional drive key. If `key` is specified, it will be advertised on the network by default, and your drive will be read-only (unless you're the original creator of this drive).
+
+CLI options include:
+```
+  --checkout (version) // Mount a static version of a drive.
+```
 
 #### `hyperdrive fs key <mountpoint>`
-Display the drive key for `<mountpoint>`.
+Display the drive key for a mounted drive. 
+
+- `mountpoint` must be a subdirectory of `~/Hyperdrive/` and must have been previously mounted with the mount subcommand described above. If `mountpoint` is not specified, the command will use the enclosing mount of your current working directory.
+
+By default, this command will refuse to display the key of your root drive (to dissuade accidentally sharing it). To forcibly display your root drive key, run this command with `--root`.
+
+CLI options include:
+```
+  --root // Forcibly display your root drive key.
+```
 
 #### `hyperdrive fs publish <mountpoint>`
-Share the subdrive to other network peers who have the drive key.  
+Start announcing a drive on the DHT so that it can be shared with other peers.
 
-- `mountpoint` must be a subdirectory of `~/Hyperdrive/home` and must have been previously mounted with the mount subcommand described above.
+- `mountpoint` must be a subdirectory of `~/Hyperdrive/` and must have been previously mounted with the mount subcommand described above. If `mountpoint` is not specified, the command will use the enclosing mount of your current working directory.
+
+By default, this command will refuse to publish your root drive (to dissuade accidentally sharing it). To forcibly publish your root drive, run this command with `--root`.
+
+CLI options include:
+```
+  --lookup (true|false)   // Look up the drive key on the DHT. Defaults to true
+  --announce (true|false) // Announce the drive key on the DHT. Defaults to true
+  --remember (true|false) // Persist these network settings in the database.
+  --root                  // Forcibly display your root drive key.
+```
 
 #### `hyperdrive fs unpublish <mountpoint>`
 Stop advertising a previously-published subdrive on the network.
 
+- `mountpoint` must be a subdirectory of `~/Hyperdrive/` and must have been previously mounted with the mount subcommand described above. If `mountpoint` is not specified, the command will use the enclosing mount of your current working directory.
+
 *Note: This command will currently not delete the Hyperdrive. Support for this will be added soon.*
+
+#### `hyperdrive fs stats <mountpoint>`
+Display networking statistics for a drive. This is a shorthand for getting a drive's key with `hyperdrive fs key` and `cat`ing `~/Hyperdrive/Network/Stats/<drive-key>/networking.json`.
+
+- `mountpoint` must be a subdirectory of `~/Hyperdrive/` and must have been previously mounted with the mount subcommand described above. If `mountpoint` is not specified, the command will use the enclosing mount of your current working directory.
 
 #### `hyperdrive fs force-unmount`
 If the daemon fails or is not stopped cleanly, then the `~/Hyperdrive` mountpoint might be left in an unusable state. Running this command before restarting the daemon will forcibly disconnect the mountpoint.
 
-## License
+This command should never be necessary! If your FUSE mountpoint isn't cleaned up on shutdown, and you're unable to restart your daemon (due to "Mountpoint in use") errors, please file an issue.
 
+## License
 MIT
