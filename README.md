@@ -250,7 +250,7 @@ CLI options include:
   --announce (true|false) // Announce the drive key on the DHT. Defaults to true
   --remember (true|false) // Persist these network settings in the database.
   --root                  // Forcibly display your root drive key.
-```
+  ```
 
 #### `hyperdrive fs unpublish <mountpoint>`
 Stop advertising a previously-published subdrive on the network.
