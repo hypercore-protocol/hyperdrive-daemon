@@ -78,14 +78,17 @@ Options include:
   --bootstrap ['host:port', 'host:port', ...] // Optional, alternative bootstrap servers
   --storage   /my/storage/dir                 // The storage directory. Defaults to ~/.hyperdrive/storage
   --log-level info                            // Logging level
-  --port      3101                            // The port gRPC will bind to.
+  --port      3101                            // The port gRPC will bind to
+  --memory-only                               // Run in in-memory mode
+  --foreground                                // Do not launch a separate, PM2-managed process
+  --no-telemetry                              // Disable telemetry
 ```
 
 #### `hyperdrive status`
-Gives the current status of the daemon.
+Gives the current status of the daemon, as well as version/networking info.
 
 #### `hyperdrive stop`
-Stop the daemon
+Stop the daemon.
 
 ## FUSE
 With FUSE, the Hyperdrive daemon lets your mount Hyperdrives as directories on both OSX and Linux. To use FUSE, you need to run the `setup` command before you start the daemon the first time:
@@ -110,7 +113,27 @@ FUSE Status:
 If FUSE is both available and configured, then you're ready to continue with mounting your top-level, private drive!
 
 ### Usage
-The daemon requires all users to have a private "root" drive, into which additional subdrives can be mounted and shared with others. Think of this root drive as the Home directory on your computer (where you might have Documents, Photos, Videos directories, for example). After starting the daemon, you can create your root drive as follows:
+The daemon requires all users to have a private "root" drive, into which additional subdrives can be mounted and shared with others. Think of this root drive as the Home directory on your computer (where you might have Documents, Photos, or Videos directories, for example). You're probably never going to want to share this directory with others, but you can create mounted sub-Hyperdrives within it that you can share.
+
+#### The `Network` "Magic Folder"
+Within your root drive, you'll see a special directory called `~/Hyperdrive/Network`. This is a virtual directory (it does not actually exist inside the drive), but it provides read-only access to useful information, such as storage/networking stats for any drive in the daemon. Here's what you can do with the `Network` directory:
+
+##### Global Drive Paths
+For any drive that's being announced on the DHT, `~/Hyperdrive/Network/<drive-key>` will contain that drive's contents. This is super useful because these paths will be consistent across all daemon users! If you have an interesting file you want to share over IRC, you can just copy+paste `cat ~/Hyperdrive/Network/<drive-key>/my-interesting-file.txt` into IRC and that command will work for everyone.
+
+##### Storage/Networking Statistics
+Inside `~/Hyperdrive/Network/Stats/<drive-key>` you'll find two files: `storage.json` and `networking.json` containing an assortment of statistics relating to that drive, such as per-file storage usage, current peers, and uploaded/downloaded bytes of the drive's metadata and content feeds.
+
+*Note: `storage.json` is dynamically computed every time the file is read -- if you have a drive containing millions of files, this can be an expensive operation, so be careful.*
+
+Since looking at `networking.json` is a common operation, we provide a shorthand command `hyperdrive fs stats` that prints this file for you. It uses your current working directory to determine the key of the mounted drive you're in.
+
+##### Active Drives
+The `~/Hyperdrive/Network/Active` directory contains symlinks to the `networking.json` stats files for every drive that your daemon is currently announcing. `ls`ing this directory gives you a quick overview of exactly what you're announcing.
+
+#### Basic Mounting
+
+After starting the daemon, you can create your root drive using the `fs mount` command without additional arguments:
 ```
 ❯ hyperdrive fs mount
 Mounted a drive with the following info:
@@ -122,9 +145,11 @@ Mounted a drive with the following info:
 This drive is private by default. To publish it, run `hyperdrive fs publish /home/andrewosh/Hyperdrive` 
 ```
 
-You likely won't want to publish or share your root drive with others, but you can create shareable subdrives using the same command:
+To create a mount in FUSE, you can use the `fs mount` command with `key` and `mountpoint` arguments. The `mountpoint` must always be a directory within your root drive, and the `key` is optional (if it isn't specified, this will create a new drive for you).
+
+To mount a new drive, you can either provide a complete path to the desired mountpoint, or you can use a relative path if your current working directory is within `~/Hyperdrive`. As an example, here's how you would create a shareable drive called `Videos`, mounted inside your root drive:
 ```
-❯ hyperdrive fs mount ~/Hyperdrive/home/videos
+❯ hyperdrive fs mount ~/Hyperdrive/videos
 Mounted a drive with the following info:
 
   Mountpoint: /home/foo/Hyperdrive/home/videos 
@@ -134,40 +159,47 @@ Mounted a drive with the following info:
 This drive is private by default. To publish it, run `hyperdrive fs publish ~/Hyperdrive/home/videos` 
 ```
 
-Once your drives are mounted, you can treat them as you would any other directory!
+Equivalently:
+```
+❯ cd ~/Hyperdrive
+❯ hyperdrive fs mount Videos
+```
 
-Subdrives are private by default (they will not be advertised on the network), but you can make them available with the `fs publish` command:
+For most purposes, you can just treat this mounted drive like you would any other directory. The `hyperdrive` CLI gives you a few mount-specific commands for sharing drive keys and getting statistics for mounted drives.
+
+Mounted subdrives are private by default (they will not be advertised on the network), but you can make them available with the `fs publish` command:
 ```
-❯ hyperdrive fs publish ~/Hyperdrive/home/videos
-Published the drive mounted at ~/Hyperdrive/home/videos
+❯ hyperdrive fs publish ~/Hyperdrive/Videos
+Published the drive mounted at ~/Hyperdrive/Videos
 ```
+
+Publishing will start announcing the drive's discovery key on the hyperswarm DHT, and this setting is persistent -- the drive will be reannounced when the daemon is restarted.
 
 After publishing, another user can either:
 1. Mount the same subdrive by key within their own root drive
-2. Inspect the drive inside the `~/Hyperdrive/by-key` directory (can be a symlink target outside the FUSE mount!):
+2. Inspect the drive inside the `~/Hyperdrive/Network` directory (can be a symlink target outside the FUSE mount!):
 ```
-❯ hyperdrive fs key ~/Hyperdrive/home/videos 
+❯ hyperdrive fs key ~/Hyperdrive/Videos
 b432f90b2f817164c32fe5056a06f50c60dc8db946e81331f92e3192f6d4b847
 
-❯ ls ~/Hyperdrive/by-key/b432f90b2f817164c32fe5056a06f50c60dc8db946e81331f92e3192f6d4b847
+❯ ls ~/Hyperdrive/Network/b432f90b2f817164c32fe5056a06f50c60dc8db946e81331f92e3192f6d4b847
 vid.mkv
 ```
 Or:
 ```
-❯ hyperdrive fs mount ~/Hyperdrive/home/a_friends_videos b432f90b2f817164c32fe5056a06f50c60dc8db946e81331f92e3192f6d4b847
+❯ hyperdrive fs mount ~/Hyperdrive/a_friends_videos b432f90b2f817164c32fe5056a06f50c60dc8db946e81331f92e3192f6d4b847
 ...
-❯ ls ~/Hyperdrive/home/a_friends_videos 
+❯ ls ~/Hyperdrive/home/a_friends_videos
 vid.mkv
 ```
 
 ### FUSE Commands
-All filesystem-related commands are accessed through the `fs` subcommand. 
+All filesystem-related commands are accessed through the `fs` subcommand.
 
 #### `hyperdrive fs mount`
 (FUSE) mount hyperdrive FS at `~/Hyperdrive`. This includes `~/Hyperdrive/home`, your top-level, private Hyperdrive -- Any drives you'd like to share with others must be created by mounting (a Hyperdrive mount, not a FUSE mount) a subdrive under this path. 
 
 Your root drive will persist across restarts. You can use it as a replacement for your normal home directory!
-
 
 #### `hyperdrive fs mount <mountpoint> [key]`
 (Hyperdrive) mount a subdrive within your root drive.
