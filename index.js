@@ -85,6 +85,7 @@ class HyperdriveDaemon extends EventEmitter {
       }
     }
     this._networkOpts.maxPeers = opts.maxPeers || MAX_PEERS
+    if (opts.latency !== undefined) this._networkOpts.latency = +opts.latency
 
     // Set in ready.
     this.networking = null

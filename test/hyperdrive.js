@@ -454,6 +454,33 @@ test('can mount a drive within a remote hyperdrive', async t => {
   t.end()
 })
 
+test('can mount a drive within a remote hyperdrive multiple times', async t => {
+  const { client, cleanup } = await createOne()
+
+  try {
+    const drive1 = await client.drive.get()
+    const drive2 = await client.drive.get()
+    await drive2.writeFile('x', 'y')
+
+    await drive1.mount('a', { key: drive2.key })
+
+    console.log('before second mount')
+    await drive1.mount('b', { key: drive2.key })
+    console.log('after second mount')
+
+    t.same(await drive1.readFile('a/x'), Buffer.from('y'))
+    t.same(await drive1.readFile('b/x'), Buffer.from('y'))
+
+    await drive1.close()
+    await drive2.close()
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 test('can unmount a drive within a remote hyperdrive', async t => {
   const { client, cleanup } = await createOne()
 

@@ -1,3 +1,4 @@
+const p = require('path')
 const test = require('tape')
 const { create } = require('./util/create')
 
@@ -374,6 +375,47 @@ test('published drives are swarmed by both reader and writer', async t => {
 
   await cleanup()
   t.end()
+})
+
+test('deep mounts with added latency', async t => {
+  const { clients, cleanup } = await create(2, { latency: 20 })
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+
+  const DEPTH = 10
+
+  try {
+    const firstRoot = await createFirst(firstClient)
+    const secondRoot = await secondClient.drive.get({ key: firstRoot.key })
+
+    let path = ''
+    for (let i = 0; i < DEPTH; i++) {
+      let component = '' + i
+      console.time('readdir')
+      const dirContents = await secondRoot.readdir(path)
+      console.timeEnd('readdir')
+      t.same(dirContents.length, 2)
+      path = p.join(path, component)
+    }
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+
+  async function createFirst (client) {
+    const rootDrive = await client.drive.get()
+    await rootDrive.configureNetwork({ lookup: true, announce: true })
+    let currentDrive = rootDrive
+    for (let i = 0; i < DEPTH; i++) {
+      currentDrive.writeFile('content', '' + i)
+      let nextDrive = await client.drive.get()
+      currentDrive.mount('' + i, { key: nextDrive.key })
+      currentDrive = nextDrive
+    }
+    return rootDrive
+  }
 })
 
 // This will hang until we add timeouts to the hyperdrive reads.

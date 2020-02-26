@@ -68,7 +68,8 @@ async function createInstance (id, port, bootstrap, opts = {}) {
     metadata: {
       token,
       endpoint
-    }
+    },
+    latency: opts.latency
   })
   await daemon.start()
 
