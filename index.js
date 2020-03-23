@@ -223,6 +223,19 @@ class HyperdriveDaemon extends EventEmitter {
 
           if (this._versions.fuseNative) rsp.setFusenativeversion(this._versions.fuseNative)
           if (this._versions.hyperdriveFuse) rsp.setHyperdrivefuseversion(this._versions.hyperdriveFuse)
+
+          if (hyperfuse) {
+            rsp.setFuseavailable(true)
+            const configured = await new Promise((resolve, reject) => {
+              hyperfuse.isConfigured((err, configured) => {
+                if (err) return reject(err)
+                return resolve(configured)
+              })
+            })
+            rsp.setFuseconfigured(configured)
+          } else {
+            rsp.setFuseavailable(false)
+          }
         }
         return rsp
       }
