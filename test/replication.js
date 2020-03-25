@@ -439,8 +439,7 @@ test.skip('can continue getting drive info after remote content is cleared (no l
 
     await clearContent([drive.key], localStore)
 
-    const cloneStats = await clone.stats()
-    console.log('clone stats here:', cloneStats)
+    // const cloneStats = await clone.stats()
   } catch (err) {
     t.fail(err)
   }
