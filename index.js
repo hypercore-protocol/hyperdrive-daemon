@@ -363,15 +363,15 @@ function wrap (metadata, methods, opts) {
           if (cb) return cb(err)
           return call.destroy(err)
         }
-        log.debug(tag, 'request authentication succeeded')
+        log.trace(tag, 'request authentication succeeded')
       }
       method(call)
         .then(rsp => {
-          log.debug(tag, 'request was successful')
+          log.trace(tag, 'request was successful')
           if (cb) process.nextTick(cb, null, rsp)
         })
         .catch(err => {
-          log.error({ ...tag, error: err.toString(), stack: err.stack }, 'request failed')
+          log.trace({ ...tag, error: err.toString() }, 'request failed')
           if (cb) return cb(serverError(err))
           return call.destroy(err)
         })
