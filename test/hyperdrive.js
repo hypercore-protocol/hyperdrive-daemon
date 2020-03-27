@@ -28,7 +28,7 @@ test('can write/read a file from a remote hyperdrive', async t => {
 test('can write/read a large file from a remote hyperdrive', async t => {
   const { client, cleanup } = await createOne()
 
-  const content = Buffer.alloc(3.9e6 * 10.11).fill('abcdefghi')
+  const content = Buffer.alloc(3.9e7).fill('abcdefghi')
 
   try {
     const drive = await client.drive.get()
@@ -464,9 +464,7 @@ test('can mount a drive within a remote hyperdrive multiple times', async t => {
 
     await drive1.mount('a', { key: drive2.key })
 
-    console.log('before second mount')
     await drive1.mount('b', { key: drive2.key })
-    console.log('after second mount')
 
     t.same(await drive1.readFile('a/x'), Buffer.from('y'))
     t.same(await drive1.readFile('b/x'), Buffer.from('y'))
@@ -709,6 +707,42 @@ test('can get network configuration alongside drive stats', async t => {
     t.false(network2.announce)
     t.true(network2.lookup)
     t.false(network2.remember)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test('can get all network configurations', async t => {
+  var { client, cleanup } = await createOne({ memoryOnly: true })
+
+  const configs = [
+    { announce: true, lookup: true, remember: true },
+    { announce: false, lookup: false, remember: true },
+    { announce: false, lookup: true, remember: false },
+    { announce: true, lookup: false, remember: false }
+  ]
+  const driveConfigs = new Map()
+
+  try {
+    for (const config of configs) {
+      const drive = await client.drive.get()
+      await drive.configureNetwork(config)
+      const expectedConfig = (!config.announce && !config.lookup) ? null : config
+      driveConfigs.set(drive.key.toString('hex'), expectedConfig)
+    }
+    const configMap = await client.drive.allNetworkConfigurations()
+    for (let [key, config] of configMap) {
+      const expectedDriveConfig = driveConfigs.get(key)
+      if (!expectedDriveConfig) {
+        t.same(config, null)
+      } else {
+        t.same(expectedDriveConfig.announce, config.announce)
+        t.same(expectedDriveConfig.lookup, config.lookup)
+      }
+    }
   } catch (err) {
     t.fail(err)
   }
