@@ -57,7 +57,6 @@ async function createInstance (id, port, bootstrap, opts = {}) {
 
   const token = `test-token-${id}`
   const endpoint = `localhost:${port}`
-  var client
 
   const daemon = new HyperdriveDaemon({
     storage: path,

@@ -79,7 +79,8 @@
   },
   "standard": {
     "ignore": [
-      "lib/fuse/index.js"
+      "lib/fuse/index.js",
+      "bin/commands/*.js"
     ]
   },
   "oclif": {
