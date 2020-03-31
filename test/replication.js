@@ -390,7 +390,7 @@ test('deep mounts with added latency', async t => {
 
     let path = ''
     for (let i = 0; i < DEPTH; i++) {
-      let component = '' + i
+      const component = '' + i
       console.time('readdir')
       const dirContents = await secondRoot.readdir(path)
       console.timeEnd('readdir')
@@ -410,7 +410,7 @@ test('deep mounts with added latency', async t => {
     let currentDrive = rootDrive
     for (let i = 0; i < DEPTH; i++) {
       currentDrive.writeFile('content', '' + i)
-      let nextDrive = await client.drive.get()
+      const nextDrive = await client.drive.get()
       currentDrive.mount('' + i, { key: nextDrive.key })
       currentDrive = nextDrive
     }

@@ -734,7 +734,7 @@ test('can get all network configurations', async t => {
       driveConfigs.set(drive.key.toString('hex'), expectedConfig)
     }
     const configMap = await client.drive.allNetworkConfigurations()
-    for (let [key, config] of configMap) {
+    for (const [key, config] of configMap) {
       const expectedDriveConfig = driveConfigs.get(key)
       if (!expectedDriveConfig) {
         t.same(config, null)

@@ -314,9 +314,9 @@ function extractArguments () {
     string: ['storage', 'log-level'],
     boolean: ['telemetry', 'no-announce', 'memory-only'],
     default: {
-      'bootstrap': '',
+      bootstrap: '',
       'memory-only': false,
-      'telemetry': true,
+      telemetry: true,
       'no-announce': false
     }
   })
