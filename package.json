@@ -4,11 +4,18 @@
   "description": "A FUSE-mountable distributed filesystem, built on Hyperdrive",
   "main": "index.js",
   "bin": {
-    "hyperdrive": "./cli.js"
+    "hyperdrive": "./bin/run/run"
   },
   "scripts": {
     "test": "standard && NODE_ENV=test tape test/*.js"
   },
+  "files": [
+    "index.js",
+    "manager.js",
+    "scripts/",
+    "lib/",
+    "bin/"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/andrewosh/hyperdrive-daemon.git"
@@ -26,13 +33,17 @@
   "homepage": "https://github.com/andrewosh/hyperdrive-daemon#readme",
   "dependencies": {
     "@grpc/grpc-js": "^0.5.1",
+    "@oclif/command": "^1.5.19",
+    "@oclif/config": "^1.14.0",
+    "@oclif/plugin-autocomplete": "^0.1.5",
+    "@oclif/plugin-help": "^2.2.3",
     "buffer-json-encoding": "^1.0.2",
-    "chalk": "^2.4.2",
     "collect-stream": "^1.2.1",
     "corestore": "^5.0.0",
     "corestore-swarm-networking": "^5.0.0",
     "dat-encoding": "^5.0.1",
     "fs-extra": "^7.0.1",
+    "globby": "^11.0.0",
     "google-protobuf": "^3.8.0",
     "hypercore": "^8.8.0",
     "hypercore-cache": "^1.0.2",
@@ -43,6 +54,7 @@
     "last-one-wins": "^1.0.4",
     "level": "^5.0.0",
     "level-mem": "^5.0.1",
+    "minimist": "^1.2.5",
     "mkdirp": "^0.5.1",
     "ora": "^4.0.3",
     "pino": "^5.12.6",
@@ -55,9 +67,7 @@
     "sodium-universal": "^2.0.0",
     "stream-collector": "^1.0.1",
     "subleveldown": "^4.0.0",
-    "through2-map": "^3.0.0",
-    "why-is-node-running": "^2.1.0",
-    "yargs": "^13.2.1"
+    "through2-map": "^3.0.0"
   },
   "optionalDependencies": {
     "hyperdrive-fuse": "^1.2.12"
@@ -70,6 +80,15 @@
   "standard": {
     "ignore": [
       "lib/fuse/index.js"
+    ]
+  },
+  "oclif": {
+    "commands": "./bin/commands",
+    "bin": "hyperdrive",
+    "plugins": [
+      "@oclif/plugin-help",
+      "@oclif/plugin-autocomplete",
+      "hyperdrive-daemon-client"
     ]
   }
 }

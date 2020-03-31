@@ -185,12 +185,8 @@ class HyperdriveDaemon extends EventEmitter {
   }
 
   async _loadMetadata () {
-    this.metadata = this.opts.metadata || await new Promise((resolve, reject) => {
-      loadMetadata(this.root, async (err, metadata) => {
-        if (err) metadata = await createMetadata(this.root, `localhost:${this.port}`)
-        return resolve(metadata)
-      })
-    })
+    this.metadata = this.opts.metadata || await loadMetadata(this.root)
+    if (!this.metadata) this.metadata = await createMetadata(this.root, `localhost:${this.port}`)
   }
 
   _ensureStorage () {
@@ -303,6 +299,7 @@ class HyperdriveDaemon extends EventEmitter {
     })
 
     await new Promise((resolve, reject) => {
+      console.log('binding server to:', this.port)
       this.server.bindAsync(`0.0.0.0:${this.port}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
         if (err) return reject(err)
         log.info({ port: port }, 'server listening')
@@ -314,32 +311,18 @@ class HyperdriveDaemon extends EventEmitter {
 }
 
 function extractArguments () {
-  return require('yargs')
-    .options({
-      bootstrap: {
-        array: true,
-        default: []
-      },
-      storage: {
-        string: true
-      },
-      port: {
-        number: true
-      },
-      'memory-only': {
-        boolean: true,
-        default: false
-      },
-      telemetry: {
-        boolean: true,
-        default: true
-      },
-      'no-announce': {
-        boolean: true,
-        default: false
-      }
-    })
-    .argv
+  const argv = require('minimist')(process.argv.slice(2), {
+    string: ['storage', 'log-level'],
+    boolean: ['telemetry', 'no-announce', 'memory-only'],
+    default: {
+      'bootstrap': '',
+      'memory-only': false,
+      'telemetry': true,
+      'no-announce': false
+    }
+  })
+  if (argv.bootstrap) argv.bootstrap = argv.bootstrap.split(',')
+  return argv
 }
 
 function wrap (metadata, methods, opts) {
