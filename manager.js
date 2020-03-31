@@ -39,19 +39,43 @@ async function start (opts = {}) {
   opts.noAnnounce = opts['no-announce']
   opts.logLevel = opts['log-level']
 
+  /**
+   * HACK
+   * If 'pm2' detects a space in the 'script' path, it assumes the call is something like "python foo.py".
+   * When that's the case, it transforms the call into `/bin/bash -c python foo.py`.
+   * This creates a problem for some hyperdrive apps because they may have spaces in their install paths.
+   * The resulting call ends up being `${interpreter} /bin/bash -c ${script}`, which is wrong.
+   * (To add a little more complexity, it does *not* do this on Windows.)
+   * 
+   * To solve that, we craft the pm2 call to use '/bin/bash -c' correctly.
+   * -prf
+   */
+  const IS_WINDOWS = (process.platform === 'win32' || process.platform === 'win64' || /^(msys|cygwin)$/.test(process.env.OSTYPE))
+  var script = p.join(__dirname, 'index.js')
+  var args = [
+    '--port', opts.port,
+    '--storage', opts.storage,
+    '--log-level', opts.logLevel,
+    '--bootstrap', opts.bootstrap.join(','),
+    '--memory-only', !!opts.memoryOnly,
+    '--telemetry', !!opts.telemetry,
+    '--no-announce', !!opts.noAnnounce
+  ]
+  var interpreter = opts.interpreter || process.execPath
+  var interpreterArgs = `--max-old-space-size=${opts.heapSize}`
+  if (!IS_WINDOWS) {
+    let execArg = [interpreter, interpreterArgs, script].concat(args).map(escapeStringArg).join(' ')
+    args = ['-c', execArg]
+    script = 'bash'
+    interpreter = undefined
+    interpreterArgs = undefined
+  }
+
   const description = {
-    script: p.join(__dirname, 'index.js'),
-    args: [
-      '--port', opts.port,
-      '--storage', opts.storage,
-      '--log-level', opts.logLevel,
-      '--bootstrap', opts.bootstrap.join(','),
-      '--memory-only', !!opts.memoryOnly,
-      '--telemetry', !!opts.telemetry,
-      '--no-announce', !!opts.noAnnounce
-    ],
-    interpreter: opts.interpreter || process.execPath,
-    interpreterArgs: `--max-old-space-size=${opts.heapSize}`,
+    script,
+    args,
+    interpreter,
+    interpreterArgs,
     name: opts.processName || 'hyperdrive',
     env: opts.env || process.env,
     output: opts.unstructuredLog,
