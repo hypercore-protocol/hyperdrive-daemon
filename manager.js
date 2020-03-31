@@ -46,7 +46,7 @@ async function start (opts = {}) {
    * This creates a problem for some hyperdrive apps because they may have spaces in their install paths.
    * The resulting call ends up being `${interpreter} /bin/bash -c ${script}`, which is wrong.
    * (To add a little more complexity, it does *not* do this on Windows.)
-   * 
+   *
    * To solve that, we craft the pm2 call to use '/bin/bash -c' correctly.
    * -prf
    */
@@ -129,4 +129,8 @@ async function stop (name, port) {
 module.exports = {
   start,
   stop
+}
+
+function escapeStringArg (v) {
+  return (typeof v === 'string' && v.includes(' ')) ? `"${v}"` : v
 }
