@@ -67,7 +67,6 @@ async function start (opts = {}) {
   }
 
   function startForeground (description, opts) {
-    console.log('starting in foreground with opts:', opts)
     const daemon = new HyperdriveDaemon({ ...opts, metadata: null, main: true })
     daemon.start()
     return { opts, description }
@@ -94,9 +93,7 @@ async function stop (name, port) {
   return new Promise((resolve, reject) => {
     pm2.connect(err => {
       if (err) return reject(new Error('Could not connect to the process manager to stop the daemon.'))
-      console.log('DELETING PROCESS:', name)
       pm2.delete(name, err => {
-        console.log('DELETED WITH ERR:', err)
         pm2.disconnect()
         if (err) return reject(err)
         return resolve()

@@ -299,7 +299,6 @@ class HyperdriveDaemon extends EventEmitter {
     })
 
     await new Promise((resolve, reject) => {
-      console.log('binding server to:', this.port)
       this.server.bindAsync(`0.0.0.0:${this.port}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
         if (err) return reject(err)
         log.info({ port: port }, 'server listening')
