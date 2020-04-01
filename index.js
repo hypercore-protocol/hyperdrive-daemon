@@ -365,6 +365,7 @@ function wrap (metadata, methods, opts) {
 if (require.main === module) {
   const opts = extractArguments()
   const daemon = new HyperdriveDaemon({ ...opts, main: true })
+  process.title = 'hyperdrive'
   daemon.start()
 } else {
   module.exports = HyperdriveDaemon

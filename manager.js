@@ -92,6 +92,7 @@ async function start (opts = {}) {
 
   function startForeground (description, opts) {
     const daemon = new HyperdriveDaemon({ ...opts, metadata: null, main: true })
+    process.title = 'hyperdrive'
     daemon.start()
     return { opts, description }
   }
