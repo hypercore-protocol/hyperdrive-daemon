@@ -28,6 +28,40 @@ test('can replicate a single drive between daemons', async t => {
   t.end()
 })
 
+test('can get drive stats containing only networking info', async t => {
+  const { clients, cleanup } = await create(2)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+
+  try {
+    const drive1 = await firstClient.drive.get()
+    await drive1.configureNetwork({ lookup: true, announce: true })
+
+    const drive2 = await secondClient.drive.get({ key: drive1.key })
+
+    await drive1.writeFile('hello', 'world')
+
+    // 100 ms delay for replication.
+    await delay(100)
+    await drive2.readFile('hello')
+
+    const { stats: stats1 } = await drive1.stats({ networkingOnly: true })
+    const { stats: stats2 } = await drive2.stats({ networkingOnly: true })
+
+    const firstStats = stats1[0]
+    const secondStats = stats2[0]
+    t.same(firstStats.metadata.peers, 1)
+    t.same(secondStats.metadata.peers, 1)
+    t.same(firstStats.metadata.downloadedBlocks, 0)
+    t.same(secondStats.metadata.downloadedBlocks, 0)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 test('can download a directory between daemons', async t => {
   const { clients, cleanup } = await create(2)
   const firstClient = clients[0]
