@@ -68,8 +68,12 @@ class SetupCommand extends Command {
 
     async function makeRootDrive () {
       try {
-        const symlinkStat = await fs.stat(constants.mountpoint)
-        const mountpointStat = await fs.stat(constants.hiddenMountpoint)
+        try {
+          var symlinkStat = await fs.stat(constants.mountpoint)
+          var mountpointStat = await fs.stat(constants.hiddenMountpoint)
+        } catch (err) {
+          if (err && err.errno !== -2) throw err
+        }
         if (!mountpointStat) {
           await fs.mkdir(constants.hiddenMountpoint, { recursive: true })
           await fs.chown(constants.hiddenMountpoint, flags.user, flags.group)
