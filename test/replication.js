@@ -483,12 +483,10 @@ test.skip('can continue getting drive info after remote content is cleared (no l
 
   async function clearContent (metadataKeys, store) {
     const metadataKeySet = new Set(metadataKeys.map(k => k.toString('hex')))
-    console.log('metadataKeySet:', metadataKeySet)
     console.log('external cores:', store._externalCores)
     for (const [, core] of store._externalCores) {
       if (metadataKeySet.has(core.key.toString('hex'))) continue
       await new Promise((resolve, reject) => {
-        console.log('CLEARING CORE:', core)
         core.clear(0, core.length, err => {
           if (err) return reject(err)
           return resolve()
