@@ -185,7 +185,11 @@ class HyperdriveDaemon extends EventEmitter {
   }
 
   async _loadMetadata () {
-    this.metadata = this.opts.metadata || await loadMetadata(this.root)
+    try {
+      this.metadata = this.opts.metadata || await loadMetadata(this.root)
+    } catch (err) {
+      if (err && err.errno !== -2) throw err
+    }
     if (!this.metadata) this.metadata = await createMetadata(this.root, `localhost:${this.port}`)
   }
 
@@ -261,14 +265,16 @@ class HyperdriveDaemon extends EventEmitter {
       log.info('waiting for networking to close')
       if (this.networking) await this.networking.close()
       log.info('waiting for corestore to close')
-      await new Promise((resolve, reject) => {
-        this.corestore.close(err => {
-          if (err) return reject(err)
-          return resolve()
+      if (this.corestore) {
+        await new Promise((resolve, reject) => {
+          this.corestore.close(err => {
+            if (err) return reject(err)
+            return resolve()
+          })
         })
-      })
+      }
       log.info('waiting for db to close')
-      await this.db.close()
+      if (this.db) await this.db.close()
       if (this._isMain) return process.exit(0)
     } catch (err) {
       log.error({ error: err.message, stack: err.stack }, 'error in cleanup')
