@@ -35,9 +35,9 @@ class StartCommand extends Command {
       description: 'Run the daemon in the foreground without detaching it from the launch process.',
       default: false
     }),
-    telemetry: flags.boolean({
-      description: '(Beta Only) Report non-confidential usage statistics to the Hyperdrive team.',
-      default: true
+    'no-telemetry': flags.boolean({
+      description: '(Beta Only) Do not report non-confidential usage statistics to the Hyperdrive team.',
+      default: false
     }),
     'no-announce': flags.boolean({
       description: 'Never announce read-only drives on the swarm by default.',

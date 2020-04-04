@@ -37,6 +37,7 @@ async function start (opts = {}) {
 
   opts.memoryOnly = opts['memory-only']
   opts.noAnnounce = opts['no-announce']
+  opts.noTelemetry = opts['no-telemetry']
   opts.logLevel = opts['log-level']
 
   /**
@@ -52,15 +53,18 @@ async function start (opts = {}) {
    */
   const IS_WINDOWS = (process.platform === 'win32' || process.platform === 'win64' || /^(msys|cygwin)$/.test(process.env.OSTYPE))
   var script = p.join(__dirname, 'index.js')
-  var args = [
-    '--port', opts.port,
-    '--storage', opts.storage,
-    '--log-level', opts.logLevel,
-    '--bootstrap', opts.bootstrap.join(','),
-    '--memory-only', !!opts.memoryOnly,
-    '--telemetry', !!opts.telemetry,
-    '--no-announce', !!opts.noAnnounce
-  ]
+
+  var args = []
+  if (opts.port) args.push('--port', opts.port)
+  if (opts.storage) args.push('--storage', opts.storage)
+  if (opts.logLevel) args.push('--log-level', opts.logLevel)
+  if (opts.memoryOnly) args.push('--memory-only')
+  if (opts.noAnnounce) args.push('--no-announce')
+  if (opts.noTelemetry) args.push('--no-telemetry')
+
+  if (opts.bootstrap === false) args.push('--bootstrap', false)
+  else if (Array.isArray(opts.bootstrap) && opts.bootstrap.length) args.push('--bootstrap', opts.bootstrap.join(','))
+
   var interpreter = opts.interpreter || process.execPath
   var interpreterArgs = `--max-old-space-size=${opts.heapSize}`
   if (!IS_WINDOWS) {
