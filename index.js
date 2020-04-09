@@ -9,6 +9,7 @@ const Corestore = require('corestore')
 const HypercoreCache = require('hypercore-cache')
 const SwarmNetworker = require('corestore-swarm-networking')
 const HypercoreProtocol = require('hypercore-protocol')
+const Peersockets = require('peersockets')
 
 const { rpc, loadMetadata, apiVersion } = require('hyperdrive-daemon-client')
 const { createMetadata } = require('./lib/metadata')
@@ -17,6 +18,7 @@ const constants = require('hyperdrive-daemon-client/lib/constants')
 const DriveManager = require('./lib/drives')
 const TelemetryManager = require('./lib/telemetry')
 const PeersocketManager = require('./lib/peersockets')
+const PeersManager = require('./lib/peers')
 const { serverError } = require('./lib/errors')
 
 try {
@@ -154,7 +156,9 @@ class HyperdriveDaemon extends EventEmitter {
       log.trace({ remoteType: stream.remoteType, remoteAddress: stream.remoteAddress }, 'replication stream closed')
     })
 
-    this.peersockets = new PeersocketManager(this.networking)
+    const peersockets = new Peersockets(this.networking)
+    this.peers = new PeersManager(this.networking, peersockets)
+    this.peersockets = new PeersocketManager(this.networking, this.peers, peersockets)
 
     this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, {
       ...this.opts,
@@ -316,6 +320,9 @@ class HyperdriveDaemon extends EventEmitter {
     })
     this.server.addService(rpc.peersockets.services.PeersocketsService, {
       ...wrap(this.metadata, this.peersockets.getHandlers(), { authenticate: true })
+    })
+    this.server.addService(rpc.peers.services.PeersService, {
+      ...wrap(this.metadata, this.peers.getHandlers(), { authenticate: true })
     })
     this.server.addService(rpc.main.services.HyperdriveService, {
       ...wrap(this.metadata, this.createMainHandlers(), { authenticate: true })

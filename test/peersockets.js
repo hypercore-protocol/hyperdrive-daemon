@@ -20,14 +20,16 @@ test('peersockets, unidirectional send one', async t => {
 
     // The two peers should be swarming now.
     const firstTopic = firstClient.peersockets.join('my-topic', {
-      onmessage: (remoteKey, msg) => {
+      onmessage: async (peerId, msg) => {
+        const remoteKey = await firstClient.peers.getKey(peerId)
         t.true(remoteKey.equals(secondKey))
         t.same(msg, Buffer.from('hello peersockets!'))
         received = true
       }
     })
     const secondTopic = secondClient.peersockets.join('my-topic')
-    secondTopic.send(firstKey, 'hello peersockets!')
+    const peerId = await secondClient.peers.getAlias(firstKey)
+    secondTopic.send(peerId, 'hello peersockets!')
 
     // 100 ms delay for the message to be send.
     await delay(100)
@@ -63,14 +65,16 @@ test('peersockets, unidirectional send many', async t => {
 
     // The two peers should be swarming now.
     const firstTopic = firstClient.peersockets.join('my-topic', {
-      onmessage: (remoteKey, msg) => {
+      onmessage: async (peerId, msg) => {
+        const remoteKey = await firstClient.peers.getKey(peerId)
         t.true(remoteKey.equals(secondKey))
         t.true(msg.equals(msgs[received++]))
       }
     })
     const secondTopic = secondClient.peersockets.join('my-topic')
+    const firstAlias = await secondClient.peers.getAlias(firstKey)
     for (const msg of msgs) {
-      secondTopic.send(firstKey, msg)
+      secondTopic.send(firstAlias, msg)
     }
 
     // 100 ms delay for the message to be send.
@@ -110,21 +114,25 @@ test('peersockets, bidirectional send one', async t => {
 
     // The two peers should be swarming now.
     const firstTopic = firstClient.peersockets.join('my-topic', {
-      onmessage: (remoteKey, msg) => {
+      onmessage: async (peerId, msg) => {
+        const remoteKey = await firstClient.peers.getKey(peerId)
         t.true(remoteKey.equals(secondKey))
         t.true(msg.equals(msg1))
-        firstTopic.send(remoteKey, msg2)
+        firstTopic.send(peerId, msg2)
         receivedFirst = true
       }
     })
     const secondTopic = secondClient.peersockets.join('my-topic', {
-      onmessage: (remoteKey, msg) => {
+      onmessage: async (peerId, msg) => {
+        const remoteKey = await secondClient.peers.getKey(peerId)
         t.true(remoteKey.equals(firstKey))
         t.true(msg.equals(msg2))
         receivedSecond = true
       }
     })
-    secondTopic.send(firstKey, msg1)
+
+    const firstAlias = await secondClient.peers.getAlias(firstKey)
+    secondTopic.send(firstAlias, msg1)
 
     // 100 ms delay for the message to be send.
     await delay(100)
@@ -164,20 +172,24 @@ test('peersockets, bidirectional send many', async t => {
 
     // The two peers should be swarming now.
     const firstTopic = firstClient.peersockets.join('my-topic', {
-      onmessage: (remoteKey, msg) => {
+      onmessage: async (peerId, msg) => {
+        const remoteKey = await firstClient.peers.getKey(peerId)
         t.true(remoteKey.equals(secondKey))
         t.true(msg.equals(firstMsgs[firstReceived]))
-        firstTopic.send(remoteKey, secondMsgs[firstReceived++])
+        firstTopic.send(peerId, secondMsgs[firstReceived++])
       }
     })
     const secondTopic = secondClient.peersockets.join('my-topic', {
-      onmessage: (remoteKey, msg) => {
+      onmessage: async (peerId, msg) => {
+        const remoteKey = await secondClient.peers.getKey(peerId)
         t.true(remoteKey.equals(firstKey))
         t.true(msg.equals(secondMsgs[secondReceived++]))
       }
     })
+
+    const firstAlias = await secondClient.peers.getAlias(firstKey)
     for (const msg of firstMsgs) {
-      secondTopic.send(firstKey, msg)
+      secondTopic.send(firstAlias, msg)
     }
 
     // 100 ms delay for the message to be send.
@@ -215,12 +227,12 @@ test('peersockets, send to all peers swarming a drive, static peers', async t =>
     const firstTopic = firstClient.peersockets.join('my-topic')
 
     // Start observing all peers that swarm the drive's discovery key.
-    const unwatch = firstClient.peersockets.watchPeers(drive1.discoveryKey, {
-      onjoin: (peer) => {
-        receivers.push(peer.noiseKey)
+    const unwatch = firstClient.peers.watchPeers(drive1.discoveryKey, {
+      onjoin: (peerId) => {
+        receivers.push(peerId)
       },
-      onleave: (peer) => {
-        receivers.splice(receivers.indexOf(peer.noiseKey), 1)
+      onleave: (peerId) => {
+        receivers.splice(receivers.indexOf(peerId), 1)
       }
     })
 
@@ -228,7 +240,8 @@ test('peersockets, send to all peers swarming a drive, static peers', async t =>
     for (let i = 1; i < NUM_PEERS; i++) {
       await clients[i].drive.get({ key: drive1.key })
       receiverTopics.push(clients[i].peersockets.join('my-topic', {
-        onmessage: (remoteKey, msg) => {
+        onmessage: async (peerId, msg) => {
+          const remoteKey = await clients[i].peers.getKey(peerId)
           t.true(remoteKey.equals(firstRemoteKey))
           t.true(msg.equals(msgs[received[i - 1]++]))
         }
@@ -239,13 +252,13 @@ test('peersockets, send to all peers swarming a drive, static peers', async t =>
     await delay(100)
 
     for (const msg of msgs) {
-      for (const remoteKey of receivers) {
-        firstTopic.send(remoteKey, msg)
+      for (const peerId of receivers) {
+        firstTopic.send(peerId, msg)
       }
     }
 
     // 1000 ms delay for all messages to be sent.
-    await delay(100)
+    await delay(1000)
 
     unwatch()
     firstTopic.close()
@@ -283,13 +296,13 @@ test('peersockets, send to all peers swarming a drive, dynamically-added peers',
     const firstTopic = firstClient.peersockets.join('my-topic')
 
     // Start observing all peers that swarm the drive's discovery key.
-    const unwatch = firstClient.peersockets.watchPeers(drive1.discoveryKey, {
-      onjoin: (peer) => {
-        firstTopic.send(peer.noiseKey, firstMessage)
-        receivers.push(peer.noiseKey)
+    const unwatch = firstClient.peers.watchPeers(drive1.discoveryKey, {
+      onjoin: (peerId) => {
+        firstTopic.send(peerId, firstMessage)
+        receivers.push(peerId)
       },
-      onleave: (peer) => {
-        receivers.splice(receivers.indexOf(peer.noiseKey), 1)
+      onleave: (peerId) => {
+        receivers.splice(receivers.indexOf(peerId), 1)
       }
     })
 
@@ -298,7 +311,8 @@ test('peersockets, send to all peers swarming a drive, dynamically-added peers',
     for (let i = 1; i < NUM_PEERS; i++) {
       await clients[i].drive.get({ key: drive1.key })
       receiverTopics.push(clients[i].peersockets.join('my-topic', {
-        onmessage: (remoteKey, msg) => {
+        onmessage: async (peerId, msg) => {
+          const remoteKey = await clients[i].peers.getKey(peerId)
           t.true(remoteKey.equals(firstRemoteKey))
           t.true(msg.equals(firstMessage))
           received[i - 1]++
