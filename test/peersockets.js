@@ -202,7 +202,7 @@ test('peersockets, send to all peers swarming a drive, static peers', async t =>
   const firstClient = clients[0]
   const firstRemoteKey = daemons[0].noiseKeyPair.publicKey
 
-  let received = (new Array(NUM_PEERS - 1)).fill(0)
+  const received = (new Array(NUM_PEERS - 1)).fill(0)
   const msgs = ['hello', 'world'].map(s => Buffer.from(s))
 
   try {
@@ -215,7 +215,7 @@ test('peersockets, send to all peers swarming a drive, static peers', async t =>
     const firstTopic = firstClient.peersockets.join('my-topic')
 
     // Start observing all peers that swarm the drive's discovery key.
-    let unwatch = firstClient.peersockets.watchPeers(drive1.discoveryKey, {
+    const unwatch = firstClient.peersockets.watchPeers(drive1.discoveryKey, {
       onjoin: (peer) => {
         receivers.push(peer.noiseKey)
       },
@@ -270,7 +270,7 @@ test('peersockets, send to all peers swarming a drive, dynamically-added peers',
   const firstClient = clients[0]
   const firstRemoteKey = daemons[0].noiseKeyPair.publicKey
 
-  let received = (new Array(NUM_PEERS - 1)).fill(0)
+  const received = (new Array(NUM_PEERS - 1)).fill(0)
   const firstMessage = Buffer.from('hello world')
 
   try {
@@ -283,7 +283,7 @@ test('peersockets, send to all peers swarming a drive, dynamically-added peers',
     const firstTopic = firstClient.peersockets.join('my-topic')
 
     // Start observing all peers that swarm the drive's discovery key.
-    let unwatch = firstClient.peersockets.watchPeers(drive1.discoveryKey, {
+    const unwatch = firstClient.peersockets.watchPeers(drive1.discoveryKey, {
       onjoin: (peer) => {
         firstTopic.send(peer.noiseKey, firstMessage)
         receivers.push(peer.noiseKey)

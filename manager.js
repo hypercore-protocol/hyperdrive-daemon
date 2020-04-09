@@ -68,7 +68,7 @@ async function start (opts = {}) {
   var interpreter = opts.interpreter || process.execPath
   var interpreterArgs = `--max-old-space-size=${opts.heapSize}`
   if (!IS_WINDOWS) {
-    let execArg = [interpreter, interpreterArgs, script].concat(args).map(escapeStringArg).join(' ')
+    const execArg = [interpreter, interpreterArgs, script].concat(args).map(escapeStringArg).join(' ')
     args = ['-c', execArg]
     script = 'bash'
     interpreter = undefined
