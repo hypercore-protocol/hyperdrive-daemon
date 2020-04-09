@@ -217,6 +217,7 @@ class HyperdriveDaemon extends EventEmitter {
           rsp.setClientversion(this._versions.client)
           rsp.setSchemaversion(this._versions.schema)
           rsp.setHyperdriveversion(this._versions.hyperdrive)
+          rsp.setNoisekey(this.noiseKeyPair.publicKey)
 
           const swarm = this.networking && this.networking.swarm
           if (swarm) {

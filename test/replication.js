@@ -452,6 +452,38 @@ test('deep mounts with added latency', async t => {
   }
 })
 
+test('can get peer counts for a drive', async t => {
+  const { clients, cleanup } = await create(3)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+  const thirdClient = clients[2]
+
+  try {
+    const drive1 = await firstClient.drive.get()
+    const drive2 = await firstClient.drive.get()
+    await drive1.writeFile('hello', 'world')
+    await drive1.configureNetwork({ lookup: true, announce: true })
+    await drive2.configureNetwork({ lookup: true, announce: true })
+
+    await secondClient.drive.get({ key: drive1.key })
+    await thirdClient.drive.get({ key: drive1.key })
+    await thirdClient.drive.get({ key: drive2.key })
+
+    // 100 ms delay for replication.
+    await delay(100)
+
+    const peerCounts = await firstClient.drive.peerCounts([drive1.key, drive2.key])
+    t.same(peerCounts.length, 2)
+    t.same(peerCounts[0], 2)
+    t.same(peerCounts[1], 1)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 // This will hang until we add timeouts to the hyperdrive reads.
 test.skip('can continue getting drive info after remote content is cleared (no longer available)', async t => {
   const { clients, cleanup, daemons } = await create(2)
