@@ -16,6 +16,7 @@ const constants = require('hyperdrive-daemon-client/lib/constants')
 
 const DriveManager = require('./lib/drives')
 const TelemetryManager = require('./lib/telemetry')
+const PeersocketManager = require('./lib/peersockets')
 const { serverError } = require('./lib/errors')
 
 try {
@@ -93,6 +94,7 @@ class HyperdriveDaemon extends EventEmitter {
     this.drives = null
     this.fuse = null
     this.telemetry = null
+    this.peersockets = null
     this.metadata = null
     this._startTime = null
 
@@ -151,6 +153,8 @@ class HyperdriveDaemon extends EventEmitter {
     this.networking.on('stream-closed', stream => {
       log.trace({ remoteType: stream.remoteType, remoteAddress: stream.remoteAddress }, 'replication stream closed')
     })
+
+    this.peersockets = new PeersocketManager(this.networking)
 
     this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, {
       ...this.opts,
@@ -247,7 +251,15 @@ class HyperdriveDaemon extends EventEmitter {
     return Date.now() - this._startTime
   }
 
+  get noiseKeyPair () {
+    if (!this.networking) return null
+    return this.networking.keyPair
+  }
+
   async stop (err) {
+    // Couldn't tell you why these propagate as uncaughtExceptions (gRPC is a PITA), but we should ignore them.
+    if (err && ((err.code === 1) || (err.code === 'ERR_HTTP2_INVALID_STREAM'))) return
+
     if (err) log.error({ error: true, err, message: err.message, stack: err.stack, errno: err.errno }, 'stopping daemon due to error')
     if (this._isClosed) {
       log.info('force killing the process because stop has been called twice')
@@ -277,6 +289,7 @@ class HyperdriveDaemon extends EventEmitter {
       if (this.db) await this.db.close()
       if (this._isMain) return process.exit(0)
     } catch (err) {
+      console.log('ERR IN CLEANUP??', err)
       log.error({ error: err.message, stack: err.stack }, 'error in cleanup')
       if (this._isMain) return process.exit(1)
       throw err
@@ -299,6 +312,9 @@ class HyperdriveDaemon extends EventEmitter {
     }
     this.server.addService(rpc.drive.services.DriveService, {
       ...wrap(this.metadata, this.drives.getHandlers(), { authenticate: true })
+    })
+    this.server.addService(rpc.peersockets.services.PeersocketsService, {
+      ...wrap(this.metadata, this.peersockets.getHandlers(), { authenticate: true })
     })
     this.server.addService(rpc.main.services.HyperdriveService, {
       ...wrap(this.metadata, this.createMainHandlers(), { authenticate: true })
@@ -337,33 +353,37 @@ function wrap (metadata, methods, opts) {
   for (const methodName of Object.keys(methods)) {
     const method = methods[methodName]
     wrapped[methodName] = function (call, ...args) {
-      const tag = { method: methodName, received: Date.now() }
-      const cb = args.length ? args[args.length - 1] : null
-      if (authenticate) {
-        let token = call.metadata && call.metadata.get('token')
-        if (token) token = token[0]
-        log.trace({ ...tag, token }, 'received token')
-        if (!token || token !== metadata.token) {
-          log.error(tag, 'request authentication failed')
-          const err = {
-            code: grpc.status.UNAUTHENTICATED,
-            message: 'Invalid auth token.'
+      try {
+        const tag = { method: methodName, received: Date.now() }
+        const cb = args.length ? args[args.length - 1] : null
+        if (authenticate) {
+          let token = call.metadata && call.metadata.get('token')
+          if (token) token = token[0]
+          log.trace({ ...tag, token }, 'received token')
+          if (!token || token !== metadata.token) {
+            log.error(tag, 'request authentication failed')
+            const err = {
+              code: grpc.status.UNAUTHENTICATED,
+              message: 'Invalid auth token.'
+            }
+            if (cb) return cb(err)
+            return call.destroy(err)
           }
-          if (cb) return cb(err)
-          return call.destroy(err)
+          log.trace(tag, 'request authentication succeeded')
         }
-        log.trace(tag, 'request authentication succeeded')
+        method(call)
+          .then(rsp => {
+            log.trace(tag, 'request was successful')
+            if (cb) process.nextTick(cb, null, rsp)
+          })
+          .catch(err => {
+            log.trace({ ...tag, error: err.toString() }, 'request failed')
+            if (cb) return cb(serverError(err))
+            return call.destroy(err)
+          })
+      } catch (err) {
+        console.log('CALL THREW A FUCKING ERROR SOMEWHERE???????')
       }
-      method(call)
-        .then(rsp => {
-          log.trace(tag, 'request was successful')
-          if (cb) process.nextTick(cb, null, rsp)
-        })
-        .catch(err => {
-          log.trace({ ...tag, error: err.toString() }, 'request failed')
-          if (cb) return cb(serverError(err))
-          return call.destroy(err)
-        })
     }
   }
   return wrapped
