@@ -361,37 +361,33 @@ function wrap (metadata, methods, opts) {
   for (const methodName of Object.keys(methods)) {
     const method = methods[methodName]
     wrapped[methodName] = function (call, ...args) {
-      try {
-        const tag = { method: methodName, received: Date.now() }
-        const cb = args.length ? args[args.length - 1] : null
-        if (authenticate) {
-          let token = call.metadata && call.metadata.get('token')
-          if (token) token = token[0]
-          log.trace({ ...tag, token }, 'received token')
-          if (!token || token !== metadata.token) {
-            log.error(tag, 'request authentication failed')
-            const err = {
-              code: grpc.status.UNAUTHENTICATED,
-              message: 'Invalid auth token.'
-            }
-            if (cb) return cb(err)
-            return call.destroy(err)
+      const tag = { method: methodName, received: Date.now() }
+      const cb = args.length ? args[args.length - 1] : null
+      if (authenticate) {
+        let token = call.metadata && call.metadata.get('token')
+        if (token) token = token[0]
+        log.trace({ ...tag, token }, 'received token')
+        if (!token || token !== metadata.token) {
+          log.error(tag, 'request authentication failed')
+          const err = {
+            code: grpc.status.UNAUTHENTICATED,
+            message: 'Invalid auth token.'
           }
-          log.trace(tag, 'request authentication succeeded')
+          if (cb) return cb(err)
+          return call.destroy(err)
         }
-        method(call)
-          .then(rsp => {
-            log.trace(tag, 'request was successful')
-            if (cb) process.nextTick(cb, null, rsp)
-          })
-          .catch(err => {
-            log.trace({ ...tag, error: err.toString() }, 'request failed')
-            if (cb) return cb(serverError(err))
-            return call.destroy(err)
-          })
-      } catch (err) {
-        console.log('CALL THREW A FUCKING ERROR SOMEWHERE???????')
+        log.trace(tag, 'request authentication succeeded')
       }
+      method(call)
+        .then(rsp => {
+          log.trace(tag, 'request was successful')
+          if (cb) process.nextTick(cb, null, rsp)
+        })
+        .catch(err => {
+          log.trace({ ...tag, error: err.toString() }, 'request failed')
+          if (cb) return cb(serverError(err))
+          return call.destroy(err)
+        })
     }
   }
   return wrapped
