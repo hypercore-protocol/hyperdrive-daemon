@@ -140,8 +140,11 @@ class HyperdriveDaemon extends EventEmitter {
     await this.corestore.ready()
 
     const seed = this.corestore._deriveSecret(NAMESPACE, 'replication-keypair')
-    log.info({ seed: seed.toString('hex') }, 'creating replication keypair')
+    const swarmId = this.corestore._deriveSecret(NAMESPACE, 'swarm-id')
+    log.info({ swarmId, seed: seed.toString('hex') }, 'creating replication keypair and swarm ID')
     this._networkOpts.keyPair = HypercoreProtocol.keyPair(seed)
+    this._networkOpts.id = swarmId
+
     this.networking = new SwarmNetworker(this.corestore, this._networkOpts)
     this.networking.on('replication-error', err => {
       log.trace({ error: err.message, stack: err.stack }, 'replication error')
@@ -294,7 +297,6 @@ class HyperdriveDaemon extends EventEmitter {
       if (this.db) await this.db.close()
       if (this._isMain) return process.exit(0)
     } catch (err) {
-      console.log('ERR IN CLEANUP??', err)
       log.error({ error: err.message, stack: err.stack }, 'error in cleanup')
       if (this._isMain) return process.exit(1)
       throw err
