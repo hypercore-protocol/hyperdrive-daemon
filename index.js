@@ -19,6 +19,7 @@ const DriveManager = require('./lib/drives')
 const TelemetryManager = require('./lib/telemetry')
 const PeersocketManager = require('./lib/peersockets')
 const PeersManager = require('./lib/peers')
+const DebugManager = require('./lib/debug')
 const { serverError } = require('./lib/errors')
 
 try {
@@ -51,6 +52,7 @@ class HyperdriveDaemon extends EventEmitter {
     this.memoryOnly = !!opts.memoryOnly
     this.telemetryEnabled = !!opts.telemetry
     this.noAnnounce = !!opts.noAnnounce
+    this.noDebug = !!opts.noDebug
 
     log.info('memory only?', this.memoryOnly, 'telemetry enabled?', this.telemetryEnabled, 'no announce?', this.noAnnounce)
     this._storageProvider = this.memoryOnly ? require('random-access-memory') : require('hypercore-default-storage')
@@ -97,6 +99,7 @@ class HyperdriveDaemon extends EventEmitter {
     this.fuse = null
     this.telemetry = null
     this.peersockets = null
+    this.debug = null
     this.metadata = null
     this._startTime = null
 
@@ -141,7 +144,7 @@ class HyperdriveDaemon extends EventEmitter {
 
     const seed = this.corestore._deriveSecret(NAMESPACE, 'replication-keypair')
     const swarmId = this.corestore._deriveSecret(NAMESPACE, 'swarm-id')
-    log.info({ swarmId, seed: seed.toString('hex') }, 'creating replication keypair and swarm ID')
+    log.info({ swarmId: swarmId.toString('hex'), seed: seed.toString('hex') }, 'creating replication keypair and swarm ID')
     this._networkOpts.keyPair = HypercoreProtocol.keyPair(seed)
     this._networkOpts.id = swarmId
 
@@ -162,7 +165,7 @@ class HyperdriveDaemon extends EventEmitter {
     const peersockets = new Peersockets(this.networking)
     this.peers = new PeersManager(this.networking, peersockets)
     this.peersockets = new PeersocketManager(this.networking, this.peers, peersockets)
-
+    if (!this.noDebug) this.debug = new DebugManager(this)
     this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, {
       ...this.opts,
       watchLimit: this.opts.watchLimit || WATCH_LIMIT
@@ -326,6 +329,11 @@ class HyperdriveDaemon extends EventEmitter {
     this.server.addService(rpc.peers.services.PeersService, {
       ...wrap(this.metadata, this.peers.getHandlers(), { authenticate: true })
     })
+    if (this.debug) {
+      this.server.addService(rpc.debug.services.DebugService, {
+        ...wrap(this.metadata, this.debug.getHandlers(), { authenticate: true })
+      })
+    }
     this.server.addService(rpc.main.services.HyperdriveService, {
       ...wrap(this.metadata, this.createMainHandlers(), { authenticate: true })
     })
