@@ -352,12 +352,13 @@ class HyperdriveDaemon extends EventEmitter {
 function extractArguments () {
   const argv = require('minimist')(process.argv.slice(2), {
     string: ['storage', 'log-level', 'bootstrap'],
-    boolean: ['telemetry', 'announce', 'memory-only'],
+    boolean: ['telemetry', 'announce', 'memory-only', 'debug'],
     default: {
       bootstrap: '',
       'memory-only': false,
       telemetry: true,
-      announce: true
+      announce: true,
+      debug: true
     }
   })
   if (argv.bootstrap === 'false') argv.bootstrap = false

@@ -42,6 +42,10 @@ class StartCommand extends Command {
     'no-announce': flags.boolean({
       description: 'Never announce read-only drives on the swarm by default.',
       default: false
+    }),
+    'no-debug': flags.boolean({
+      description: 'Disable debugging-related RPC methods.',
+      default: false
     })
   }
 
