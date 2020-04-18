@@ -99,6 +99,8 @@ async function start (opts = {}) {
   function startForeground (description, opts) {
     const daemon = new HyperdriveDaemon({ ...opts, metadata: null, main: true })
     process.title = 'hyperdrive'
+    process.removeAllListeners('SIGINT')
+    process.removeAllListeners('SIGTERM')
     daemon.start()
     return { opts, description }
   }

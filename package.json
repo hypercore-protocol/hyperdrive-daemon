@@ -52,7 +52,7 @@
     "hyperdrive-daemon-client": "beta",
     "hypertrie": "^4.4.0",
     "last-one-wins": "^1.0.4",
-    "level": "^5.0.0",
+    "level": "^6.0.0",
     "level-mem": "^5.0.1",
     "minimist": "^1.2.5",
     "mkdirp": "^0.5.1",
@@ -81,7 +81,9 @@
   "standard": {
     "ignore": [
       "lib/fuse/index.js",
-      "bin/commands/*.js"
+      "bin/commands/*.js",
+      "bin/commands/debug/*.js",
+      "bin/commands/cleanup/*.js"
     ]
   },
   "oclif": {

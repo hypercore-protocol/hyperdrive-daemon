@@ -202,7 +202,7 @@ class HyperdriveDaemon extends EventEmitter {
     try {
       this.metadata = this.opts.metadata || await loadMetadata(this.root)
     } catch (err) {
-      if (err && err.errno !== -2) throw err
+      if (err && err.code !== 'ENOENT') throw err
     }
     if (!this.metadata) this.metadata = await createMetadata(this.root, `localhost:${this.port}`)
   }
@@ -270,7 +270,6 @@ class HyperdriveDaemon extends EventEmitter {
   async stop (err) {
     // Couldn't tell you why these propagate as uncaughtExceptions (gRPC is a PITA), but we should ignore them.
     if (err && ((err.code === 1) || (err.code === 'ERR_HTTP2_INVALID_STREAM'))) return
-
     if (err) log.error({ error: true, err, message: err.message, stack: err.stack, errno: err.errno }, 'stopping daemon due to error')
     if (this._isClosed) {
       log.info('force killing the process because stop has been called twice')

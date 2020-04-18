@@ -72,7 +72,7 @@ class SetupCommand extends Command {
           var symlinkStat = await fs.stat(constants.mountpoint)
           var mountpointStat = await fs.stat(constants.hiddenMountpoint)
         } catch (err) {
-          if (err && err.errno !== -2) throw err
+          if (err && err.code !== 'ENOENT') throw err
         }
         if (!mountpointStat) {
           await fs.mkdir(constants.hiddenMountpoint, { recursive: true })
