@@ -78,10 +78,11 @@ class HyperdriveDaemon extends EventEmitter {
     this.corestore = new Corestore(corestoreOpts.storage, corestoreOpts)
 
     this._networkOpts = {
-      announceLocalAddress: true
+      announceLocalAddress: true,
+      preferredPort: 49737,
+      maxPeers: opts.maxPeers || MAX_PEERS
     }
     const bootstrapOpts = opts.bootstrap || constants.bootstrap
-
     if (bootstrapOpts && bootstrapOpts.length && bootstrapOpts[0] !== '') {
       if (bootstrapOpts === false || bootstrapOpts[0] === 'false') {
         this._networkOpts.bootstrap = false
@@ -89,7 +90,6 @@ class HyperdriveDaemon extends EventEmitter {
         this._networkOpts.bootstrap = bootstrapOpts
       }
     }
-    this._networkOpts.maxPeers = opts.maxPeers || MAX_PEERS
     if (opts.latency !== undefined) this._networkOpts.latency = +opts.latency
 
     // Set in ready.
