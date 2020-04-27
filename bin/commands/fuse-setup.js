@@ -69,17 +69,15 @@ class SetupCommand extends Command {
     async function makeRootDrive () {
       try {
         try {
-          var symlinkStat = await fs.stat(constants.mountpoint)
-          var mountpointStat = await fs.stat(constants.hiddenMountpoint)
+          var mountpointStat = await fs.stat(constants.mountpoint)
         } catch (err) {
           if (err && err.code !== 'ENOENT') throw err
         }
         if (!mountpointStat) {
-          await fs.mkdir(constants.hiddenMountpoint, { recursive: true })
-          await fs.chown(constants.hiddenMountpoint, flags.user, flags.group)
-        }
-        if (!symlinkStat) {
-          await fs.symlink(constants.hiddenMountpoint, constants.mountpoint)
+          await fs.mkdir(constants.mountpoint)
+          // TODO: Uncomment when fuse-native path goes in.
+          // await fs.writeFile(p.join(constants.mountpoint, 'HYPERDRIVE_IS_NOT_RUNNING'), '')
+          await fs.chown(constants.mountpoint, flags.user, flags.group)
         }
       } catch (err) {
         console.error('Could not create the FUSE mountpoint:')
