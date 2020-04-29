@@ -168,6 +168,7 @@ class HyperdriveDaemon extends EventEmitter {
     if (!this.noDebug) this.debug = new DebugManager(this)
     this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, {
       ...this.opts,
+      memoryOnly: this.memoryOnly,
       watchLimit: this.opts.watchLimit || WATCH_LIMIT
     })
     this.fuse = hyperfuse ? new FuseManager(this.drives, dbs.fuse, this.opts) : null

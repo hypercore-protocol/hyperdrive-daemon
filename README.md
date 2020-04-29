@@ -67,7 +67,7 @@ The daemon exposes a gRPC API for interacting with remote Hyperdrives. [`hyperdr
 Hypermount provides an gRPC interface for mounting, unmounting, and providing status information about all current mounts. There's also a bundled CLI tool which wraps the gRPC API and provides the following commands:
 
 ### Basic Commands 
-#### `hyperdrive setup`
+#### `hyperdrive fuse-setup`
 Performs a one-time configuration step that installs FUSE. This command will prompt you for `sudo`.
 
 #### `hyperdrive start`
@@ -90,13 +90,41 @@ Gives the current status of the daemon, as well as version/networking info, and 
 #### `hyperdrive stop`
 Stop the daemon.
 
+### Importing/Exporting
+If you're on a system that doesn't support FUSE, or you just don't want to bother with it, the CLI provides the `import` and `export` commands for moving files in and out of Hyperdrives.
+
+#### Importing
+To import a directory into a new Hyperdrive, you can run `import` without specifying a key:
+```
+❯ hyperdrive import ./path/to/directory
+Importing path/to/directory into aae4f36bd0b1a7a8bf68aa0bdd0b93997fd8ff053f4a3e816cb629210aa17737 (Ctrl+c to exit)...
+
+Importing | ======================================== | 100% | 3/3 Files
+```
+
+The command will remain running, watching the directory for any new changes, but you can always stop it with `Ctrl+c`
+
+`import` will save a special file called `.hyperdrive-import-key` inside the directory you uploaded. This makes it easier to resume a previous import later, without any additional arguments. Using the command above as an example, `hyperdrive import path/to/directory` subsequent times will always import into drive `aae4f36bd0b1a7a8bf68aa0bdd0b93997fd8ff053f4a3e816cb629210aa17737`.
+
+#### Exporting
+`hyperdrive export` is just the inverse of `import`: Given a key it will export the drive's contents into a directory:
+```
+❯ hyperdrive export aae4f36bd0b1a7a8bf68aa0bdd0b93997fd8ff053f4a3e816cb629210aa17737
+Exporting aae4f36bd0b1a7a8bf68aa0bdd0b93997fd8ff053f4a3e816cb629210aa17737 into (my working directory)/aae4f36bd0b1a7a8bf68aa0bdd0b93997fd8ff053f4a3e816cb629210aa17737 (Ctrl+c to exit)...
+
+Exporting | ======================================== | 100% | 5/5 Metadata Blocks | 0 Peers
+```
+Unless an output directory is specified, `export` will store files in a subdirectory with the drive's key as its name.
+
+As with `import`, `export` will store a special file which lets you resume exports easily (just `cd` into your previous output directory and run `hyperdrive export`), and it will remain running, watching the remote drive for changes.
+
 ### Debugging Commands
 If you're testing bug fixes or features, some of these commands might be useful for you.
 
-#### `hyperdrive debug clear`
-Delete all read-only drives from disk. This will clear up storage, and makes it easier to test networking issues during development (as doing a `debug clear` will force you to re-sync test drives when the daemon is restarted).
+#### `hyperdrive cleanup:remove-readonly-drives`
+Delete all read-only drives from disk. This will clear up storage, and makes it easier to test networking issues during development (as running this command will force you to re-sync test drives when the daemon is restarted).
 
-This command *must not* be run while the daemon is running.
+This command *must not* be run while the daemon is running. Since it deletes data, it's intentionally verbose!
 
 ## FUSE
 Using FUSE, the Hyperdrive daemon lets your mount Hyperdrives as normal filesystem directories on both OSX and Linux. To use FUSE, you need to run the `setup` command before you start the daemon the first time:
@@ -104,7 +132,7 @@ Using FUSE, the Hyperdrive daemon lets your mount Hyperdrives as normal filesyst
 ### Setup
 The setup command installs native, prebuilt FUSE bindings. We currently only provide bindings for OSX and Linux. The setup step is the only part of installation that requires `sudo` access:
 ```
-❯ hyperdrive setup
+❯ hyperdrive fuse-setup
 Configuring FUSE...
 [sudo] password for andrewosh:
 Successfully configured FUSE!
