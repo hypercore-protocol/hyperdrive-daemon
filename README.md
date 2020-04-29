@@ -104,7 +104,9 @@ Importing | ======================================== | 100% | 3/3 Files
 
 The command will remain running, watching the directory for any new changes, but you can always stop it with `Ctrl+c`
 
-`import` will save a special file called `.hyperdrive-import-key` inside the directory you uploaded. This makes it easier to resume a previous import later, without any additional arguments. Using the command above as an example, `hyperdrive import path/to/directory` subsequent times will always import into drive `aae4f36bd0b1a7a8bf68aa0bdd0b93997fd8ff053f4a3e816cb629210aa17737`.
+`import` will save a special file called `.hyperdrive-import-key` inside the directory you uploaded. This makes it easier to resume a previous import later, without any additional arguments. 
+
+Using the command above as an example, `hyperdrive import path/to/directory` subsequent times will always import into drive `aae4f36bd0b1a7a8bf68aa0bdd0b93997fd8ff053f4a3e816cb629210aa17737`.
 
 #### Exporting
 `hyperdrive export` is just the inverse of `import`: Given a key it will export the drive's contents into a directory:
