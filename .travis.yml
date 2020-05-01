@@ -14,9 +14,9 @@ cache:
   npm: false
 
 script:
-  - npm i -g
-  - hyperdrive start
-  - hyperdrive status
+  - npm i
+  - bin/run/run start
+  - bin/run/run status
 
 jobs:
   include:
