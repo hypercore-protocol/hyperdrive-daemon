@@ -7,8 +7,7 @@
     "hyperdrive": "./bin/run/run"
   },
   "scripts": {
-    "test": "standard && NODE_ENV=test tape test/*.js",
-    "ci:status": "./bin/run/run start --no-announce && ./bin/run/run status"
+    "test": "standard && NODE_ENV=test tape test/*.js"
   },
   "files": [
     "index.js",
