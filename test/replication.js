@@ -484,6 +484,66 @@ test('can get peer counts for a drive', async t => {
   t.end()
 })
 
+test('can get peer info globally', async t => {
+  const { clients, cleanup } = await create(3)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+  const thirdClient = clients[2]
+
+  try {
+    const drive1 = await firstClient.drive.get()
+    const drive2 = await firstClient.drive.get()
+    await drive1.configureNetwork({ lookup: true, announce: true })
+    await drive2.configureNetwork({ lookup: true, announce: true })
+
+    await secondClient.drive.get({ key: drive1.key })
+    await thirdClient.drive.get({ key: drive2.key })
+
+    // 100 ms delay for replication.
+    await delay(100)
+
+    const peers = await firstClient.peers.listPeers()
+    t.same(peers.length, 2)
+    t.true(peers[0].address)
+    t.true(peers[0].noiseKey)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test('can get peer info for one discovery key', async t => {
+  const { clients, daemons, cleanup } = await create(3)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+  const thirdClient = clients[2]
+
+  try {
+    const drive1 = await firstClient.drive.get()
+    const drive2 = await firstClient.drive.get()
+    await drive1.writeFile('hello', 'world')
+    await drive1.configureNetwork({ lookup: true, announce: true })
+    await drive2.configureNetwork({ lookup: true, announce: true })
+
+    await secondClient.drive.get({ key: drive1.key })
+    await thirdClient.drive.get({ key: drive2.key })
+
+    // 100 ms delay for replication.
+    await delay(100)
+
+    const peers = await firstClient.peers.listPeers(drive2.discoveryKey)
+    t.same(peers.length, 1)
+    t.true(peers[0].noiseKey.equals(daemons[2].noiseKeyPair.publicKey))
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 // This will hang until we add timeouts to the hyperdrive reads.
 test.skip('can continue getting drive info after remote content is cleared (no longer available)', async t => {
   const { clients, cleanup, daemons } = await create(2)
