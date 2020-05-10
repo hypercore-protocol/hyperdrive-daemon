@@ -1,7 +1,9 @@
 # ⛰️ hyperdrive-daemon
 [![Build Status](https://travis-ci.com/andrewosh/hyperdrive-daemon.svg?branch=master)](https://travis-ci.com/andrewosh/hyperdrive-daemon)
 
-The Hyperdrive daemon helps you create, share, and manage Hyperdrives through a persistent process running on your computer, without having to deal with storage management or networking configuration. It provides both a gRPC API (see [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client)) for interacting with remote drives, and an optional FUSE interface for mounting drives as directories in your local filesystem.
+The Hyperdrive daemon helps you create, share, and manage Hyperdrives through a persistent process running on your computer, without having to deal with storage management or networking configuration.
+
+It provides both a gRPC API (see [`hyperdrive-daemon-client`](https://github.com/andrewosh/hyperdrive-daemon-client)) for interacting with remote drives, and an optional FUSE interface for mounting drives as directories in your local filesystem.
 
 #### Features
 * __Hyperswarm Networking__: Hyperdrives are announced and discovered using the [Hyperswarm DHT](https://github.com/hyperswarm/hyperswarm).
@@ -76,7 +78,6 @@ Options include:
   --port      3101                            // The port gRPC will bind to
   --memory-only                               // Run in in-memory mode
   --foreground                                // Do not launch a separate, PM2-managed process
-  --no-telemetry                              // Disable telemetry
 ```
 
 #### `hyperdrive status`
@@ -151,7 +152,9 @@ The daemon requires all users to have a private "root" drive, mounted at `~/Hype
 Think of this root drive as the `home` directory on your computer, where you might have Documents, Photos, or Videos directories. You'll likely never want to share your complete Documents folder with someone, but you can create a shareable mounted drive `Documents/coding-project-feb-2020` to share with collaborators on that project. 
 
 #### Basic Mounting
-After starting the daemon with FUSE configured, you'll find a fresh root drive using the `fs mount` automatically mounted for you at `~/Hyperdrive`. This root drive will persist across daemon restarts, so it should always be available (just like your usual Home directory!).
+After starting the daemon with FUSE configured, you'll find a fresh root drive automatically mounted for you at `~/Hyperdrive`. This root drive will persist across daemon restarts, so it should always be available (just like your usual Home directory!).
+
+As with a home directory, you can might want to create directories like `~/Hyperdrive/Documents`, `~/Hyperdrive/Videos`, and `~/Hyperdrive/Projects`. Be careful though -- any directory you create with `mkdir` or through the OSX Finder will not be drive mounts, so they will not be shareable with others.
 
 There are two ways to create a shareable drive inside your root drive:
 1. `hyperdrive create [path]` - This will create a new shareable drive at `path` (where `path` must be a subdirectory of `~/Hyperdrive`. This drive will look like a normal directory, but if you run `hyperdrive info [path]` it will tell you that it's shareable.
