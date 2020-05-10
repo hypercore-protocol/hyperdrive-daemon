@@ -16,7 +16,6 @@ const { createMetadata } = require('./lib/metadata')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
 const DriveManager = require('./lib/drives')
-const TelemetryManager = require('./lib/telemetry')
 const PeersocketManager = require('./lib/peersockets')
 const PeersManager = require('./lib/peers')
 const DebugManager = require('./lib/debug')
@@ -50,11 +49,10 @@ class HyperdriveDaemon extends EventEmitter {
 
     this.port = opts.port || constants.port
     this.memoryOnly = !!opts.memoryOnly
-    this.telemetryEnabled = !!opts.telemetry
     this.noAnnounce = !!opts.noAnnounce
     this.noDebug = !!opts.noDebug
 
-    log.info('memory only?', this.memoryOnly, 'telemetry enabled?', this.telemetryEnabled, 'no announce?', this.noAnnounce)
+    log.info('memory only?', this.memoryOnly, 'no announce?', this.noAnnounce)
     this._storageProvider = this.memoryOnly ? require('random-access-memory') : require('hypercore-default-storage')
     this._dbProvider = this.memoryOnly ? require('level-mem') : require('level')
 
@@ -97,7 +95,6 @@ class HyperdriveDaemon extends EventEmitter {
     this.db = null
     this.drives = null
     this.fuse = null
-    this.telemetry = null
     this.peersockets = null
     this.debug = null
     this.metadata = null
@@ -174,11 +171,6 @@ class HyperdriveDaemon extends EventEmitter {
     this.fuse = hyperfuse ? new FuseManager(this.drives, dbs.fuse, this.opts) : null
     this.drives.on('error', err => this.emit('error', err))
     if (this.fuse) this.fuse.on('error', err => this.emit('error', err))
-
-    if (this.telemetryEnabled) {
-      this.telemetry = new TelemetryManager(this)
-      this.telemetry.start()
-    }
 
     await Promise.all([
       this.drives.ready(),
@@ -281,8 +273,6 @@ class HyperdriveDaemon extends EventEmitter {
 
     try {
       if (this.server) this.server.forceShutdown()
-      log.info('stopping telemetry if telemetry is running')
-      if (this.telemetry) this.telemetry.stop()
       log.info('waiting for fuse to unmount')
       if (this.fuse && this.fuse.fuseConfigured) await this.fuse.unmount()
       log.info('waiting for networking to close')
@@ -352,11 +342,10 @@ class HyperdriveDaemon extends EventEmitter {
 function extractArguments () {
   const argv = require('minimist')(process.argv.slice(2), {
     string: ['storage', 'log-level', 'bootstrap'],
-    boolean: ['telemetry', 'announce', 'memory-only', 'debug'],
+    boolean: ['announce', 'memory-only', 'debug'],
     default: {
       bootstrap: '',
       'memory-only': false,
-      telemetry: true,
       announce: true,
       debug: true
     }

@@ -12,11 +12,6 @@ The Hyperdrive daemon helps you create, share, and manage Hyperdrives through a 
 * __Persistence__: Networking configuration info is stored in a [Level](https://github.com/level/level) instance, so your drives will reconnect to the network automatically when the daemon's restarted.
 * __PM2 Process Management__: We use [PM2](https://github.com/Unitech/pm2) to manage the daemon process. Separately installing the PM2 CLI gives you access to extra monitoring, and support for installing the Hyperdrive daemon as a system daemon.
 
-#### :warning: Beta Notice :warning:
-During the beta period, we'll be collecting simple telemetry (such as memory usage and DHT info) by default. The telemetry updates do not contain any Hyperdrive keys, and you can see exactly what we send [here](https://github.com/andrewosh/hyperdrive-daemon/blob/master/lib/telemetry.js).
-
-If you're not comfortable sharing these stats, you can disable telemetry by starting the daemon with the `--no-telemetry` flag.
-
 ## Installation
 ```
 npm i hyperdrive-daemon@beta -g

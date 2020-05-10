@@ -35,10 +35,6 @@ class StartCommand extends Command {
       description: 'Run the daemon in the foreground without detaching it from the launch process.',
       default: false
     }),
-    'no-telemetry': flags.boolean({
-      description: '(Beta Only) Do not report non-confidential usage statistics to the Hyperdrive team.',
-      default: false
-    }),
     'no-announce': flags.boolean({
       description: 'Never announce read-only drives on the swarm by default.',
       default: false
@@ -53,7 +49,6 @@ class StartCommand extends Command {
     const self = this
     const { flags } = this.parse(StartCommand)
 
-    if (flags.telemetry) displayTelemetryNotice()
     const spinner = ora('Starting the Hyperdrive daemon...').start()
     try {
       const { opts } = await start(flags)
@@ -67,11 +62,3 @@ class StartCommand extends Command {
 }
 
 module.exports = StartCommand
-
-function displayTelemetryNotice () {
-  console.log('** Beta Notice: **\n')
-  console.log('  The daemon\'s been started with simple telemetry enabled. To disable, restart with --telemetry false.\n')
-  console.log('  Telemetry allows us to collect statistics such as uptime and the number of active connections.')
-  console.log('  We do not send confidential information, such as drive keys, to our telemetry server.')
-  console.log()
-}

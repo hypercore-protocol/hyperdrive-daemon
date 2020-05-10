@@ -38,7 +38,6 @@ async function start (opts = {}) {
   opts.memoryOnly = opts['memory-only']
   opts.noAnnounce = opts['no-announce']
   opts.noDebug = opts['no-debug']
-  opts.noTelemetry = opts['no-telemetry']
   opts.logLevel = opts['log-level']
 
   /**
@@ -61,7 +60,6 @@ async function start (opts = {}) {
   if (opts.logLevel) args.push('--log-level', opts.logLevel)
   if (opts.memoryOnly) args.push('--memory-only')
   if (opts.noAnnounce) args.push('--no-announce')
-  if (opts.noTelemetry) args.push('--no-telemetry')
   if (opts.noDebug) args.push('--no-debug')
 
   if (opts.bootstrap === false) args.push('--bootstrap', false)
