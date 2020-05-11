@@ -216,26 +216,33 @@ class HyperdriveDaemon extends EventEmitter {
    * This is where we define our main heuristic for allowing hypercore gets/updates to proceed.
    */
   _registerCoreTimeouts () {
-    this.corestore.on('feed', (core) => {
+    const flushSets = new Map()
+
+    this.networking.on('flushed', dkey => {
+      const keyString = dkey.toString('hex')
+      if (!flushSets.has(keyString)) return
+      const { flushSet, peerAddSet } = flushSets.get(keyString)
+      callAllInSet(flushSet)
+      callAllInSet(peerAddSet)
+    })
+
+    this.corestore.on('feed', core => {
       const discoveryKey = core.discoveryKey
-      const status = this.networker.status(discoveryKey)
 
       const peerAddSet = new Set()
       const flushSet = new Set()
+      flushSets.set(discoveryKey.toString('hex'), { flushSet, peerAddSet })
       core.once('peer-add', () => callAllInSet(peerAddSet))
-      status.once('flushed', () => {
-        callAllInSet(flushSet)
-        callAllInSet(peerAddSet)
-      })
 
       const timeouts = {
         get: (cb) => {
-          if (status.flushed()) return cb()
+          if (this.networking.flushed(discoveryKey)) return cb()
           return flushSet.add(cb)
         },
         update: (cb) => {
           if (core.peers.length) return cb()
-          peerAddSet.add(cb)
+          if (this.networking.flushed(discoveryKey) && !core.peers.length) return cb()
+          return peerAddSet.add(cb)
         }
       }
       core.timeouts = timeouts
@@ -427,7 +434,9 @@ function wrap (metadata, methods, opts) {
 }
 
 function callAllInSet (set) {
-  for (const cb of set) cb()
+  for (const cb of set) {
+    cb()
+  }
   set.clear()
 }
 
