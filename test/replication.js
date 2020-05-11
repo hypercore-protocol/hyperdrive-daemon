@@ -391,17 +391,27 @@ test('published drives are swarmed by both reader and writer', async t => {
     const profileRootDir = await reader.readdir('profile')
     t.same(profileRootDir, ['service'])
 
-    // The service should dynamically lookup then announce.
+    // The update heuristic should do any early abort here:
+    //  - the reader is connected to the profile peer, which has mount metadata for service but no files (reader <-> profile only)
+    //  - an update on service will proceed immediately because it has 1 peer (early abort), but that peer has no files
     try {
-      const serviceStat = await reader.stat('profile/service/a')
-      t.true(serviceStat)
+      await reader.stat('profile/service/a')
     } catch (err) {
-      t.error(err)
+      t.true(err)
     }
+
+    // After a small delay, reader <-> service directly.
+    await delay(100)
+
+    let serviceDir = await reader.readdir('profile/service')
+    t.same(serviceDir.length, 1)
+    // This time it works because reader <-> service directly
+    const stat = await reader.stat('profile/service/a')
+    t.true(stat)
 
     // Killing the second daemon should still let us get service stats through the serviceOwner
     await daemons[1].stop()
-    const serviceDir = await reader.readdir('profile/service/a')
+    serviceDir = await reader.readdir('profile/service/a')
     t.same(serviceDir, ['3', '1', '2'])
   } catch (err) {
     t.fail(err)
