@@ -17,7 +17,7 @@ async function start (opts = {}) {
     opts.env = { ...opts.env, PATH: process.env.PATH }
   }
 
-  const client = new HyperdriveClient(opts.endpoint, { storage: initialOpts.storage || opts.root })
+  const client = new HyperdriveClient({ endpoint: opts.endpoint, storage: initialOpts.storage || opts.root })
   const running = await new Promise((resolve, reject) => {
     client.ready(err => {
       if (!err) return resolve(true)
@@ -103,9 +103,9 @@ async function start (opts = {}) {
     return { opts, description }
   }
 
-  function startDaemon (description, noDaemonMode) {
+  function startDaemon (description, opts) {
     return new Promise((resolve, reject) => {
-      pm2.connect(!!noDaemonMode, err => {
+      pm2.connect(!!opts.noDaemonMode, err => {
         if (err) return reject(new Error('Could not connect to the process manager to start the daemon.'))
         pm2.start(description, err => {
           pm2.disconnect()
