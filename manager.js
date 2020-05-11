@@ -103,9 +103,9 @@ async function start (opts = {}) {
     return { opts, description }
   }
 
-  function startDaemon (description) {
+  function startDaemon (description, noDaemonMode) {
     return new Promise((resolve, reject) => {
-      pm2.connect(err => {
+      pm2.connect(!!noDaemonMode, err => {
         if (err) return reject(new Error('Could not connect to the process manager to start the daemon.'))
         pm2.start(description, err => {
           pm2.disconnect()
