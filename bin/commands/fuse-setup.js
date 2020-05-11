@@ -54,7 +54,7 @@ class SetupCommand extends Command {
           return resolve(fuseConfigured)
         })
       })
-      if (configured) {
+      if (configured && !flags.force) {
         console.log('Note: FUSE is already configured.')
       } else {
         return new Promise((resolve, reject) => {
@@ -78,6 +78,13 @@ class SetupCommand extends Command {
           // TODO: Uncomment when fuse-native path goes in.
           // await fs.writeFile(p.join(constants.mountpoint, 'HYPERDRIVE_IS_NOT_RUNNING'), '')
           await fs.chown(constants.mountpoint, flags.user, flags.group)
+        } else {
+          // If this is a symlink (legacy) delete it.
+          try {
+            await fs.unlink(constants.mountpoint)
+          } catch (err) {
+            // If Hyperdrive is a directory, this will error, but it doesn't matter.
+          }
         }
       } catch (err) {
         console.error('Could not create the FUSE mountpoint:')
