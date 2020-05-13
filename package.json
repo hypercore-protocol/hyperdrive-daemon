@@ -50,7 +50,7 @@
     "hypercore-default-storage": "^1.0.0",
     "hypercore-protocol": "^8.0.0",
     "hyperdrive": "^10.8.10",
-    "hyperdrive-daemon-client": "beta",
+    "hyperdrive-daemon-client": "^1.14.3",
     "hyperdrive-schemas": "^1.9.0",
     "level": "^6.0.0",
     "level-mem": "^5.0.1",
