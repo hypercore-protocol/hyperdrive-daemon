@@ -16,7 +16,7 @@ It provides both a gRPC API (see [`hyperdrive-daemon-client`](https://github.com
 
 ## Installation
 ```
-npm i hyperdrive-daemon@beta -g
+npm i hyperdrive-daemon -g
 ```
 *Note: Make sure you're installing the `@beta` version for now!*
 
