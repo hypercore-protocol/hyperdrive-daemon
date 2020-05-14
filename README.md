@@ -1,4 +1,4 @@
-# ⛰️ hyperdrive-daemon
+# hyperdrive-daemon
 [![Build Status](https://travis-ci.com/andrewosh/hyperdrive-daemon.svg?branch=master)](https://travis-ci.com/andrewosh/hyperdrive-daemon)
 
 The Hyperdrive daemon helps you create, share, and manage Hyperdrives through a persistent process running on your computer, without having to deal with storage management or networking configuration.
@@ -15,6 +15,8 @@ It provides both a gRPC API (see [`hyperdrive-daemon-client`](https://github.com
 * __PM2 Process Management__: We use [PM2](https://github.com/Unitech/pm2) to manage the daemon process. Separately installing the PM2 CLI gives you access to extra monitoring, and support for installing the Hyperdrive daemon as a system daemon.
 
 ## Installation
+
+*Note: The daemon CLI currently requires Node 12 or greater*
 ```
 npm i hyperdrive-daemon -g
 ```
