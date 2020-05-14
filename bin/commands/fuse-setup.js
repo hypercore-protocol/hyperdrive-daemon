@@ -5,12 +5,6 @@ const { Command, flags } = require('@oclif/command')
 
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
-try {
-  var hyperfuse = require('hyperdrive-fuse')
-} catch (err) {
-  console.warn('FUSE installation failed. You will be unable to mount your hyperdrives.')
-}
-
 class SetupCommand extends Command {
   static usage = 'fuse-setup'
   static description = 'Perform a one-time configuration step for FUSE.'
@@ -32,6 +26,12 @@ class SetupCommand extends Command {
     })
   }
   async run () {
+    try {
+      var hyperfuse = require('hyperdrive-fuse')
+    } catch (err) {
+      console.warn('FUSE installation failed. You will be unable to mount your hyperdrives.')
+    }
+
     if (!hyperfuse) return onerror('FUSE installation failed.')
     const { flags } = this.parse(SetupCommand)
 
