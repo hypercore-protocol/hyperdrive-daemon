@@ -28,11 +28,12 @@ class SetupCommand extends Command {
   async run () {
     try {
       var hyperfuse = require('hyperdrive-fuse')
-    } catch (err) {
-      console.warn('FUSE installation failed. You will be unable to mount your hyperdrives.')
-    }
+    } catch (err) {}
 
-    if (!hyperfuse) return onerror('FUSE installation failed.')
+    if (!hyperfuse) {
+      console.warn('FUSE installation failed. You will be unable to mount your hyperdrives.')
+      return
+    }
     const { flags } = this.parse(SetupCommand)
 
     console.log('Configuring FUSE...')
