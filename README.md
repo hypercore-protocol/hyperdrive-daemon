@@ -227,7 +227,7 @@ Inside `~/Hyperdrive/Network/Stats/<drive-key>` you'll find two files: `storage.
 
 *__Note__: `storage.json` is dynamically computed every time the file is read -- if you have a drive containing millions of files, this can be an expensive operation, so be careful.*
 
-Since looking at `networking.json` is a common operation, we provide a shorthand command `hyperdrive fs stats` that prints this file for you. It uses your current working directory to determine the key of the mounted drive you're in.
+Since looking at `networking.json` is a common operation, we provide a shorthand command `hyperdrive stats` that prints this file for you. It uses your current working directory to determine the key of the mounted drive you're in.
 
 #### Active Drives
 The `~/Hyperdrive/Network/Active` directory contains symlinks to the `networking.json` stats files for every drive that your daemon is currently announcing. `ls`ing this directory gives you a quick overview of exactly what you're announcing.
