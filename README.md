@@ -168,7 +168,7 @@ To mount a new drive, you can either provide a complete path to the desired moun
 ❯ hyperdrive create ~/Hyperdrive/videos
 Mounted a drive with the following info:
 
-  Path      : /home/foo/Hyperdrive/home/videos 
+  Path      : /home/foo/Hyperdrive/videos 
   Key:        b432f90b2f817164c32fe5056a06f50c60dc8db946e81331f92e3192f6d4b847 
   Seeding:    true
 ```
@@ -233,8 +233,6 @@ Since looking at `networking.json` is a common operation, we provide a shorthand
 The `~/Hyperdrive/Network/Active` directory contains symlinks to the `networking.json` stats files for every drive that your daemon is currently announcing. `ls`ing this directory gives you a quick overview of exactly what you're announcing.
 
 ### FUSE Commands
-All filesystem-related commands are accessed through the `fs` subcommand.
-
 *Note: Always be sure to run `hyperdrive setup` and check the FUSE status before doing any additional FUSE-related commands!*
 
 #### `hyperdrive create <path>`
