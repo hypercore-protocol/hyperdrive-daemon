@@ -12,11 +12,13 @@ It provides both a gRPC API (see [`hyperdrive-daemon-client`](https://github.com
 * __FUSE support__: If you're using Linux or Mac, you can mount Hyperdrives as directories and work with them using standard filesystem syscalls.
 * __CLI Tools__: The `hyperdrive` CLI supports a handful of commands for managing the daemon, creating/sharing drives, getting statistics, and augmenting the FUSE interface to support Hyperdrive-specific functions (like mounts).
 * __Persistence__: Networking configuration info is stored in a [Level](https://github.com/level/level) instance, so your drives will reconnect to the network automatically when the daemon's restarted.
-* __PM2 Process Management__: We use [PM2](https://github.com/Unitech/pm2) to manage the daemon process. Separately installing the PM2 CLI gives you access to extra monitoring, and support for installing the Hyperdrive daemon as a system daemon.
+* __PM2 Process Management__: We use [PM2](https://github.com/Unitech/pm2) to manage the daemon process. Separately installing the PM2 CLI gives you access to extra monitoring, and support for installing the Hyperdrive daemon as a system daemon
 
 ## Installation
-
 *Note: The daemon CLI currently requires Node 12 or greater*
+
+__Temporary Note: We're working out a [segfault issue](https://github.com/hypercore-protocol/hyperdrive-daemon/issues/47) that's causing the daemon to fail with Node 14. If you're on 14, check that issue for updates, but for now try using 12 or 13__.
+
 ```
 npm i hyperdrive-daemon -g
 ```
