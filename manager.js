@@ -1,3 +1,4 @@
+const fs = require('fs').promises
 const p = require('path')
 
 const mkdirp = require('mkdirp')
@@ -88,10 +89,23 @@ async function start (opts = {}) {
     autorestart: false
   }
 
+  try {
+    await removeOldLogs()
+  } catch (err) {
+    // If the log file couldn't be deleted, it's OK.
+  }
+
   if (opts.foreground) {
     return startForeground(description, opts)
   } else {
     return startDaemon(description, opts)
+  }
+
+  function removeOldLogs () {
+    return Promise.all([
+      fs.unlink(description.output),
+      fs.unlink(description.error)
+    ])
   }
 
   function startForeground (description, opts) {

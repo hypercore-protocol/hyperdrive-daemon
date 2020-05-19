@@ -396,7 +396,7 @@ function wrap (metadata, methods, opts) {
         if (token) token = token[0]
         log.trace({ ...tag, token }, 'received token')
         if (!token || token !== metadata.token) {
-          log.error(tag, 'request authentication failed')
+          log.warn(tag, 'request authentication failed')
           const err = {
             code: grpc.status.UNAUTHENTICATED,
             message: 'Invalid auth token.'
