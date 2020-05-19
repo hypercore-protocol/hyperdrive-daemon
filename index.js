@@ -19,6 +19,7 @@ const DriveManager = require('./lib/drives')
 const PeersocketManager = require('./lib/peersockets')
 const PeersManager = require('./lib/peers')
 const DebugManager = require('./lib/debug')
+const FuseManager = require('./lib/fuse')
 const { serverError } = require('./lib/errors')
 
 const log = require('./lib/log').child({ component: 'server' })
@@ -166,16 +167,18 @@ class HyperdriveDaemon extends EventEmitter {
     this.peers = new PeersManager(this.networking, peersockets)
     this.peersockets = new PeersocketManager(this.networking, this.peers, peersockets)
     if (!this.noDebug) this.debug = new DebugManager(this)
+
     this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, {
       ...this.opts,
       memoryOnly: this.memoryOnly,
       watchLimit: this.opts.watchLimit || WATCH_LIMIT
     })
-
     this.drives.on('error', err => this.emit('error', err))
     await this.drives.ready()
 
-    await this._refreshFuse()
+    this.fuse = new FuseManager(this.drives, this._dbs.fuse, this.opts)
+    this.fuse.on('error', err => this.emit('error', err))
+    await this.fuse.ready()
 
     this._isReady = true
     this._startTime = Date.now()
@@ -185,23 +188,10 @@ class HyperdriveDaemon extends EventEmitter {
       schema: require('hyperdrive-schemas/package.json').version,
       hyperdrive: require('hyperdrive/package.json').version
     }
-    if (this.fuse) {
+    if (this.fuse && this.fuse.fuseConfigured) {
       this._versions.fuseNative = require('fuse-native/package.json').version
       this._versions.hyperdriveFuse = require('hyperdrive-fuse/package.json').version
     }
-  }
-
-  async _refreshFuse () {
-    try {
-      hyperfuse = require('hyperdrive-fuse')
-      var FuseManager = require('./lib/fuse')
-    } catch (err) {
-      console.warn('FUSE bindings are not available on this platform.')
-      return null
-    }
-    this.fuse = new FuseManager(this.drives, this._dbs.fuse, this.opts)
-    this.fuse.on('error', err => this.emit('error', err))
-    return this.fuse.ready()
   }
 
   _ensureStorage () {
@@ -275,12 +265,7 @@ class HyperdriveDaemon extends EventEmitter {
 
           if (hyperfuse) {
             rsp.setFuseavailable(true)
-            const configured = await new Promise((resolve, reject) => {
-              hyperfuse.isConfigured((err, configured) => {
-                if (err) return reject(err)
-                return resolve(configured)
-              })
-            })
+            const configured = await this._isFuseConfigured()
             rsp.setFuseconfigured(configured)
           } else {
             rsp.setFuseavailable(false)
@@ -289,7 +274,7 @@ class HyperdriveDaemon extends EventEmitter {
         return rsp
       },
       refreshFuse: async call => {
-        await this._refreshFuse()
+        await this.fuse.ready()
         return new rpc.main.messages.FuseRefreshResponse()
       }
     }
@@ -350,11 +335,9 @@ class HyperdriveDaemon extends EventEmitter {
     await this.ready()
     this.server = new grpc.Server()
 
-    if (hyperfuse) {
-      this.server.addService(rpc.fuse.services.FuseService, {
-        ...wrap(this.metadata, this.fuse.getHandlers(), { authenticate: true })
-      })
-    }
+    this.server.addService(rpc.fuse.services.FuseService, {
+      ...wrap(this.metadata, this.fuse.getHandlers(), { authenticate: true })
+    })
     this.server.addService(rpc.drive.services.DriveService, {
       ...wrap(this.metadata, this.drives.getHandlers(), { authenticate: true })
     })
