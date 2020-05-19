@@ -31,7 +31,7 @@ test('peersockets, unidirectional send one', async t => {
     const peerId = await secondClient.peers.getAlias(firstKey)
     secondTopic.send(peerId, 'hello peersockets!')
 
-    // 100 ms delay for the message to be send.
+    // 100 ms delay for the message to be sent.
     await delay(100)
 
     firstTopic.close()
@@ -334,6 +334,59 @@ test.skip('peersockets, send to all peers swarming a drive, dynamically-added pe
   for (const count of received) {
     t.same(count, 1)
   }
+  await cleanup()
+  t.end()
+})
+
+test('closing the last topic handle closes the topic', async t => {
+  const { clients, daemons, cleanup } = await create(2)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+
+  const firstPeersockets = daemons[0].peersockets.peersockets
+  const firstKey = daemons[0].noiseKeyPair.publicKey
+  const secondKey = daemons[1].noiseKeyPair.publicKey
+  let received = false
+
+  try {
+    const drive1 = await firstClient.drive.get()
+    await drive1.configureNetwork({ lookup: true, announce: true })
+    await secondClient.drive.get({ key: drive1.key })
+
+    // 100 ms delay for swarming.
+    await delay(100)
+
+    // The two peers should be swarming now.
+    const firstTopic = firstClient.peersockets.join('my-topic', {
+      onmessage: async (peerId, msg) => {
+        const remoteKey = await firstClient.peers.getKey(peerId)
+        t.true(remoteKey.equals(secondKey))
+        t.same(msg, Buffer.from('hello peersockets!'))
+        received = true
+      }
+    })
+    const secondTopic = secondClient.peersockets.join('my-topic')
+    const peerId = await secondClient.peers.getAlias(firstKey)
+    secondTopic.send(peerId, 'hello peersockets!')
+
+    // 100 ms delay for the message to be sent.
+    await delay(100)
+
+    // The topic should still be registered on the connection.
+    t.same(firstPeersockets.topicsByName.size, 1)
+
+    firstTopic.close()
+    secondTopic.close()
+  } catch (err) {
+    t.fail(err)
+  }
+
+  // Delay for topics to be closed
+  await delay(100)
+
+  t.true(received)
+  t.same(firstPeersockets.topicsByName.size, 0)
+
   await cleanup()
   t.end()
 })

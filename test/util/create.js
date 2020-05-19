@@ -5,7 +5,7 @@ const { HyperdriveClient } = require('hyperdrive-daemon-client')
 const HyperdriveDaemon = require('../..')
 
 const BASE_PORT = 4101
-const BOOTSTRAP_PORT = 3100
+const BOOTSTRAP_PORT = 3106
 const BOOTSTRAP_URL = `localhost:${BOOTSTRAP_PORT}`
 
 async function create (numServers, opts) {

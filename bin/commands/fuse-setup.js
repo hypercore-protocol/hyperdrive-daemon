@@ -3,6 +3,7 @@ const fs = require('fs').promises
 const { exec } = require('child_process')
 const { Command, flags } = require('@oclif/command')
 
+const { HyperdriveClient } = require('hyperdrive-daemon-client')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
 class SetupCommand extends Command {
@@ -46,6 +47,15 @@ class SetupCommand extends Command {
     } catch (err) {
       console.error('Could not configure the FUSE module:')
       console.error(err)
+    }
+
+    // If the daemon is running, refresh FUSE.
+    try {
+      const client = new HyperdriveClient()
+      await client.ready()
+      await client.refreshFuse()
+    } catch (err) {
+      // Emitting errors here would just be confusing, so suppress.
     }
 
     async function configureFuse (cb) {

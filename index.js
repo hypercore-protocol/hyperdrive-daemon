@@ -11,7 +11,7 @@ const SwarmNetworker = require('corestore-swarm-networking')
 const HypercoreProtocol = require('hypercore-protocol')
 const Peersockets = require('peersockets')
 
-const { rpc, loadMetadata, apiVersion } = require('hyperdrive-daemon-client')
+const { rpc, apiVersion } = require('hyperdrive-daemon-client')
 const { createMetadata } = require('./lib/metadata')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
@@ -21,12 +21,6 @@ const PeersManager = require('./lib/peers')
 const DebugManager = require('./lib/debug')
 const { serverError } = require('./lib/errors')
 
-try {
-  var hyperfuse = require('hyperdrive-fuse')
-  var FuseManager = require('./lib/fuse')
-} catch (err) {
-  console.warn('FUSE bindings are not available on this platform.')
-}
 const log = require('./lib/log').child({ component: 'server' })
 
 const NAMESPACE = 'hyperdrive-daemon'
@@ -38,6 +32,9 @@ const TOTAL_CACHE_SIZE = 1024 * 1024 * 512
 const CACHE_RATIO = 0.5
 const TREE_CACHE_SIZE = TOTAL_CACHE_SIZE * CACHE_RATIO
 const DATA_CACHE_SIZE = TOTAL_CACHE_SIZE * (1 - CACHE_RATIO)
+
+// This is set dynamically in refreshFuse.
+var hyperfuse = null
 
 class HyperdriveDaemon extends EventEmitter {
   constructor (opts = {}) {
@@ -102,6 +99,7 @@ class HyperdriveDaemon extends EventEmitter {
 
     // Set in start.
     this.server = null
+    this._dbs = null
     this._isMain = !!opts.main
     this._cleanup = null
 
@@ -122,7 +120,8 @@ class HyperdriveDaemon extends EventEmitter {
   }
 
   async _ready () {
-    await this._loadMetadata()
+    // Always rotate the auth token when the daemon's restarted to prevent session mismatches.
+    this.metadata = this.opts.metadata || await createMetadata(this.root, `localhost:${this.port}`)
     await this._ensureStorage()
 
     this._cleanup = this.stop.bind(this)
@@ -136,6 +135,7 @@ class HyperdriveDaemon extends EventEmitter {
       drives: sub(this.db, 'drives', { valueEncoding: bjson }),
       profiles: sub(this.db, 'profiles', { valueEncoding: 'json' })
     }
+    this._dbs = dbs
 
     await this.corestore.ready()
 
@@ -171,14 +171,11 @@ class HyperdriveDaemon extends EventEmitter {
       memoryOnly: this.memoryOnly,
       watchLimit: this.opts.watchLimit || WATCH_LIMIT
     })
-    this.fuse = hyperfuse ? new FuseManager(this.drives, dbs.fuse, this.opts) : null
-    this.drives.on('error', err => this.emit('error', err))
-    if (this.fuse) this.fuse.on('error', err => this.emit('error', err))
 
-    await Promise.all([
-      this.drives.ready(),
-      this.fuse ? this.fuse.ready() : Promise.resolve()
-    ])
+    this.drives.on('error', err => this.emit('error', err))
+    await this.drives.ready()
+
+    await this._refreshFuse()
 
     this._isReady = true
     this._startTime = Date.now()
@@ -194,13 +191,17 @@ class HyperdriveDaemon extends EventEmitter {
     }
   }
 
-  async _loadMetadata () {
+  async _refreshFuse () {
     try {
-      this.metadata = this.opts.metadata || await loadMetadata(this.root)
+      hyperfuse = require('hyperdrive-fuse')
+      var FuseManager = require('./lib/fuse')
     } catch (err) {
-      if (err && err.code !== 'ENOENT') throw err
+      console.warn('FUSE bindings are not available on this platform.')
+      return null
     }
-    if (!this.metadata) this.metadata = await createMetadata(this.root, `localhost:${this.port}`)
+    this.fuse = new FuseManager(this.drives, this._dbs.fuse, this.opts)
+    this.fuse.on('error', err => this.emit('error', err))
+    return this.fuse.ready()
   }
 
   _ensureStorage () {
@@ -251,7 +252,7 @@ class HyperdriveDaemon extends EventEmitter {
 
   createMainHandlers () {
     return {
-      status: async (call) => {
+      status: async call => {
         const rsp = new rpc.main.messages.StatusResponse()
         rsp.setApiversion(apiVersion)
         rsp.setUptime(Date.now() - this._startTime)
@@ -286,6 +287,10 @@ class HyperdriveDaemon extends EventEmitter {
           }
         }
         return rsp
+      },
+      refreshFuse: async call => {
+        await this._refreshFuse()
+        return new rpc.main.messages.FuseRefreshResponse()
       }
     }
   }
