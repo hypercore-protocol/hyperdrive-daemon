@@ -1,6 +1,6 @@
 const p = require('path')
 const fs = require('fs').promises
-const { exec } = require('child_process')
+const { spawn } = require('child_process')
 const { Command, flags } = require('@oclif/command')
 
 const { HyperdriveClient } = require('hyperdrive-daemon-client')
@@ -69,8 +69,12 @@ class SetupCommand extends Command {
         console.log('Note: FUSE is already configured.')
       } else {
         return new Promise((resolve, reject) => {
-          exec(`sudo ${process.execPath} ${p.join(__dirname, '../../scripts/configure.js')}`, err => {
-            if (err) return reject(err)
+          const child = spawn('sudo', [process.execPath, p.join(__dirname, '../../scripts/configure.js')], {
+            stdio: 'inherit'
+          })
+          child.on('error', reject)
+          child.on('exit', code => {
+            if (code) return reject(new Error(code))
             return resolve()
           })
         })
