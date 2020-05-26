@@ -68,6 +68,7 @@ async function start (opts = {}) {
 
   var interpreter = opts.interpreter || process.execPath
   var interpreterArgs = `--max-old-space-size=${opts.heapSize}`
+  console.log('interpreterArgs:', interpreterArgs)
   if (!IS_WINDOWS) {
     const execArg = [interpreter, interpreterArgs, script].concat(args).map(escapeStringArg).join(' ')
     args = ['-c', execArg]
@@ -90,22 +91,21 @@ async function start (opts = {}) {
   }
 
   try {
-    await removeOldLogs()
+    if (opts.structuredLog === constants.structuredLog) {
+      await fs.rename(constants.structuredLog, constants.structuredLog.replace('.json', '.old.json'))
+    }
+    if (opts.unstructuredLog === constants.unstructuredLog) {
+      await fs.rename(constants.unstructuredLog, constants.unstructuredLog.replace('.log', '.old.log'))
+    }
   } catch (err) {
-    // If the log file couldn't be deleted, it's OK.
+    console.log('err:', err)
+    // If the log file couldn't be rotated, it's OK.
   }
 
   if (opts.foreground) {
     return startForeground(description, opts)
   } else {
     return startDaemon(description, opts)
-  }
-
-  function removeOldLogs () {
-    return Promise.all([
-      fs.unlink(description.output),
-      fs.unlink(description.error)
-    ])
   }
 
   function startForeground (description, opts) {

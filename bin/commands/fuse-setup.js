@@ -60,6 +60,8 @@ class SetupCommand extends Command {
       // Emitting errors here would just be confusing, so suppress.
     }
 
+    this.exit(0)
+
     async function configureFuse (cb) {
       const configured = await new Promise((resolve, reject) => {
         hyperfuse.isConfigured((err, fuseConfigured) => {

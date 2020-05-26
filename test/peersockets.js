@@ -277,7 +277,7 @@ test('peersockets, send to all peers swarming a drive, static peers', async t =>
 })
 
 // TODO: There's a nondeterministic failure here on slow machines. Investigate.
-test.skip('peersockets, send to all peers swarming a drive, dynamically-added peers', async t => {
+test('peersockets, send to all peers swarming a drive, dynamically-added peers', async t => {
   const NUM_PEERS = 10
 
   const { clients, daemons, cleanup } = await create(NUM_PEERS)

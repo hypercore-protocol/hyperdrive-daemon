@@ -481,6 +481,45 @@ test('can mount a drive within a remote hyperdrive multiple times', async t => {
   t.end()
 })
 
+test('can mount a versioned drive within a remote hyperdrive', async t => {
+  const { client, cleanup } = await createOne()
+
+  try {
+    const drive1 = await client.drive.get()
+
+    const drive2 = await client.drive.get()
+    await drive2.writeFile('hamster', 'wheel')
+    const version1 = await drive2.version()
+    await drive2.writeFile('blah', 'blahblah')
+
+    await drive1.mount('a', { key: drive2.key })
+    await drive1.mount('aStatic', { key: drive2.key, version: version1 })
+
+    await drive1.writeFile('a/hello', 'world')
+    await drive1.writeFile('adios', 'amigo')
+
+    t.same(await drive1.readFile('adios'), Buffer.from('amigo'))
+    t.same(await drive1.readFile('a/hello'), Buffer.from('world'))
+    t.same(await drive2.readFile('hello'), Buffer.from('world'))
+    t.same(await drive2.readFile('hamster'), Buffer.from('wheel'))
+    t.same(await drive1.readFile('aStatic/hamster'), Buffer.from('wheel'))
+    try {
+      await drive1.readFile('aStatic/blah')
+      t.fail('aStatic should be a versioned mount')
+    } catch (err) {
+      t.true(err)
+    }
+
+    await drive1.close()
+    await drive2.close()
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 test('can unmount a drive within a remote hyperdrive', async t => {
   const { client, cleanup } = await createOne()
 
@@ -604,8 +643,7 @@ test('can create a symlink to directories', async t => {
   t.end()
 })
 
-// TODO: Stop skipping once we've updated hyperdrive/mountable-hypertrie to nanoresource.
-test.skip('drives are closed when all corresponding sessions are closed', async t => {
+test('drives are closed when all corresponding sessions are closed', async t => {
   const { client, cleanup, daemon } = await createOne()
 
   try {
@@ -630,6 +668,66 @@ test.skip('drives are closed when all corresponding sessions are closed', async 
   t.end()
 })
 
+test('reopening a drive after previously closed works', async t => {
+  const { client, cleanup, daemon } = await createOne()
+
+  try {
+    var drive = await client.drive.get()
+    const driveKey = drive.key
+    await drive.writeFile('a', 'a')
+    await drive.writeFile('b', 'b')
+    await drive.writeFile('c', 'c')
+    const otherDrive = await client.drive.get({ key: driveKey })
+    const checkout1 = await client.drive.get({ key: driveKey, version: 1 })
+
+    await drive.close()
+    t.same(daemon.drives._drives.size, 2)
+    await otherDrive.close()
+    t.same(daemon.drives._drives.size, 2)
+    await checkout1.close()
+    t.same(daemon.drives._drives.size, 0)
+
+    drive = await client.drive.get({ key: driveKey })
+    await drive.writeFile('d', 'd')
+    const contents = await drive.readFile('a')
+    t.same(contents, Buffer.from('a'))
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test('many quick closes/reopens', async t => {
+  const NUM_CYCLES = 10
+  const { client, cleanup, daemon } = await createOne()
+  var driveKey = null
+  const expected = new Array(NUM_CYCLES).fill(0).map((_, i) => '' + i)
+
+  try {
+    for (let i = 0; i < NUM_CYCLES; i++) {
+      var drive = await client.drive.get({ key: driveKey })
+      if (!driveKey) driveKey = drive.key
+      await drive.writeFile(expected[i], expected[i])
+      await drive.close()
+      if (daemon.drives._drives.size !== 0) t.fail('session close did not trigger drive close')
+    }
+    drive = await client.drive.get({ key: driveKey })
+    const actual = []
+    for (let i = 0; i < NUM_CYCLES; i++) {
+      const contents = await drive.readFile(expected[i])
+      actual[i] = contents.toString('utf8')
+    }
+    t.same(expected, actual)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 test('drives are writable after a daemon restart', async t => {
   var { dir, client, cleanup } = await createOne()
 
@@ -645,6 +743,33 @@ test('drives are writable after a daemon restart', async t => {
     cleanup = newDaemon.cleanup
 
     drive = await client.drive.get({ key: driveKey })
+    t.same(await drive.readFile('a'), Buffer.from('a'))
+    await drive.writeFile('b', 'b')
+    t.same(await drive.readFile('b'), Buffer.from('b'))
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test('cores are not closed incorrectly during the initial rejoin', async t => {
+  var { dir, client, cleanup } = await createOne()
+
+  try {
+    var drive = await client.drive.get()
+    const driveKey = drive.key
+    await drive.writeFile('a', 'a')
+    await drive.configureNetwork({ announce: true, lookup: true, remember: true })
+
+    await cleanup({ persist: true })
+
+    const newDaemon = await createOne({ dir })
+    client = newDaemon.client
+    cleanup = newDaemon.cleanup
+    drive = await client.drive.get({ key: driveKey })
+
     t.same(await drive.readFile('a'), Buffer.from('a'))
     await drive.writeFile('b', 'b')
     t.same(await drive.readFile('b'), Buffer.from('b'))

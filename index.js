@@ -35,7 +35,9 @@ const TREE_CACHE_SIZE = TOTAL_CACHE_SIZE * CACHE_RATIO
 const DATA_CACHE_SIZE = TOTAL_CACHE_SIZE * (1 - CACHE_RATIO)
 
 // This is set dynamically in refreshFuse.
-var hyperfuse = null
+try {
+  var hyperfuse = require('hyperdrive-fuse')
+} catch (err) {}
 
 class HyperdriveDaemon extends EventEmitter {
   constructor (opts = {}) {
@@ -265,16 +267,21 @@ class HyperdriveDaemon extends EventEmitter {
 
           if (hyperfuse) {
             rsp.setFuseavailable(true)
-            const configured = await this._isFuseConfigured()
-            rsp.setFuseconfigured(configured)
+            rsp.setFuseconfigured(this.fuse.fuseConfigured)
           } else {
             rsp.setFuseavailable(false)
+            rsp.setFuseconfigured(false)
           }
         }
         return rsp
       },
       refreshFuse: async call => {
         await this.fuse.ready()
+        if (this.fuse && this.fuse.fuseConfigured) {
+          hyperfuse = require('hyperdrive-fuse')
+          this._versions.fuseNative = require('fuse-native/package.json').version
+          this._versions.hyperdriveFuse = require('hyperdrive-fuse/package.json').version
+        }
         return new rpc.main.messages.FuseRefreshResponse()
       }
     }

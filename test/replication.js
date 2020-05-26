@@ -555,7 +555,7 @@ test('can get peer info for one discovery key', async t => {
 })
 
 // This will hang until we add timeouts to the hyperdrive reads.
-test.skip('can continue getting drive info after remote content is cleared (no longer available)', async t => {
+test('can continue getting drive info after remote content is cleared (no longer available)', async t => {
   const { clients, cleanup, daemons } = await create(2)
   const firstClient = clients[0]
   const secondClient = clients[1]
@@ -585,7 +585,6 @@ test.skip('can continue getting drive info after remote content is cleared (no l
 
   async function clearContent (metadataKeys, store) {
     const metadataKeySet = new Set(metadataKeys.map(k => k.toString('hex')))
-    console.log('external cores:', store._externalCores)
     for (const [, core] of store._externalCores) {
       if (metadataKeySet.has(core.key.toString('hex'))) continue
       await new Promise((resolve, reject) => {
