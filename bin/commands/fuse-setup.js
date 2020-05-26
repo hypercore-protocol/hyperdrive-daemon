@@ -1,4 +1,6 @@
 const p = require('path')
+const CONFIGURE_FUSE = [process.execPath, p.join(__dirname, '../../scripts/configure.js')]
+
 const fs = require('fs').promises
 const { spawn } = require('child_process')
 const { Command, flags } = require('@oclif/command')
@@ -69,7 +71,7 @@ class SetupCommand extends Command {
         console.log('Note: FUSE is already configured.')
       } else {
         return new Promise((resolve, reject) => {
-          const child = spawn('sudo', [process.execPath, p.join(__dirname, '../../scripts/configure.js')], {
+          const child = spawn('sudo', CONFIGURE_FUSE, {
             stdio: 'inherit'
           })
           child.on('error', reject)
