@@ -61,6 +61,7 @@
     "peersockets": "^0.3.0",
     "pino": "^5.12.6",
     "pm2": "^4.2.1",
+    "process-top": "^1.1.0",
     "pump": "^3.0.0",
     "pumpify": "^2.0.1",
     "random-access-memory": "^3.1.1",

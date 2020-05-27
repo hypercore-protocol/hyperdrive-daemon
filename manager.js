@@ -67,8 +67,7 @@ async function start (opts = {}) {
   else if (Array.isArray(opts.bootstrap) && opts.bootstrap.length) args.push('--bootstrap', opts.bootstrap.join(','))
 
   var interpreter = opts.interpreter || process.execPath
-  var interpreterArgs = `--max-old-space-size=${opts.heapSize}`
-  console.log('interpreterArgs:', interpreterArgs)
+  var interpreterArgs = [`--max-old-space-size=${opts.heapSize}`]
   if (!IS_WINDOWS) {
     const execArg = [interpreter, interpreterArgs, script].concat(args).map(escapeStringArg).join(' ')
     args = ['-c', execArg]
@@ -98,7 +97,6 @@ async function start (opts = {}) {
       await fs.rename(constants.unstructuredLog, constants.unstructuredLog.replace('.log', '.old.log'))
     }
   } catch (err) {
-    console.log('err:', err)
     // If the log file couldn't be rotated, it's OK.
   }
 

@@ -5,6 +5,7 @@ const mkdirp = require('mkdirp')
 const sub = require('subleveldown')
 const grpc = require('@grpc/grpc-js')
 const bjson = require('buffer-json-encoding')
+const processTop = require('process-top')
 const Corestore = require('corestore')
 const HypercoreCache = require('hypercore-cache')
 const SwarmNetworker = require('corestore-swarm-networking')
@@ -102,6 +103,7 @@ class HyperdriveDaemon extends EventEmitter {
 
     // Set in start.
     this.server = null
+    this._topTimer = null
     this._dbs = null
     this._isMain = !!opts.main
     this._cleanup = null
@@ -144,7 +146,6 @@ class HyperdriveDaemon extends EventEmitter {
 
     const seed = this.corestore._deriveSecret(NAMESPACE, 'replication-keypair')
     const swarmId = this.corestore._deriveSecret(NAMESPACE, 'swarm-id')
-    log.info({ swarmId: swarmId.toString('hex'), seed: seed.toString('hex') }, 'creating replication keypair and swarm ID')
     this._networkOpts.keyPair = HypercoreProtocol.keyPair(seed)
     this._networkOpts.id = swarmId
 
@@ -309,6 +310,10 @@ class HyperdriveDaemon extends EventEmitter {
     this._isClosed = true
 
     try {
+      if (this._topTimer) {
+        clearInterval(this._topTimer)
+        this._topTimer = null
+      }
       if (this.server) this.server.forceShutdown()
       log.info('waiting for fuse to unmount')
       if (this.fuse && this.fuse.fuseConfigured) await this.fuse.unmount()
@@ -340,6 +345,10 @@ class HyperdriveDaemon extends EventEmitter {
 
   async start () {
     await this.ready()
+    this._topTimer = setInterval(() => {
+      log.info(processTop().toJSON(), 'process stats')
+    }, 1000 * 60)
+
     this.server = new grpc.Server()
 
     this.server.addService(rpc.fuse.services.FuseService, {
