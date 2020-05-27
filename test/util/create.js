@@ -62,6 +62,8 @@ async function createInstance (id, port, bootstrap, opts = {}) {
     storage: path,
     bootstrap,
     port,
+    // Added this so that old DHT messages from a live daemon don't connect to the test daemons.
+    swarmPort: port * 2,
     memoryOnly: !!opts.memoryOnly,
     noAnnounce: !!opts.noAnnounce,
     metadata: {

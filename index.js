@@ -29,6 +29,7 @@ const NAMESPACE = 'hyperdrive-daemon'
 const STOP_EVENTS = ['SIGINT', 'SIGTERM', 'unhandledRejection', 'uncaughtException']
 const WATCH_LIMIT = 300
 const MAX_PEERS = 128
+const SWARM_PORT = 49737
 
 const TOTAL_CACHE_SIZE = 1024 * 1024 * 512
 const CACHE_RATIO = 0.5
@@ -78,7 +79,7 @@ class HyperdriveDaemon extends EventEmitter {
 
     this._networkOpts = {
       announceLocalAddress: true,
-      preferredPort: 49737,
+      preferredPort: opts.swarmPort || SWARM_PORT,
       maxPeers: opts.maxPeers || MAX_PEERS
     }
     const bootstrapOpts = opts.bootstrap || constants.bootstrap
