@@ -22,6 +22,7 @@ const PeersManager = require('./lib/peers')
 const DebugManager = require('./lib/debug')
 const FuseManager = require('./lib/fuse')
 const { serverError } = require('./lib/errors')
+const { getHandlers } = require('./lib/common')
 
 const log = require('./lib/log').child({ component: 'server' })
 
@@ -261,50 +262,51 @@ class HyperdriveDaemon extends EventEmitter {
     })
   }
 
-  createMainHandlers () {
-    return {
-      status: async call => {
-        const rsp = new rpc.main.messages.StatusResponse()
-        rsp.setApiversion(apiVersion)
-        rsp.setUptime(Date.now() - this._startTime)
-        if (this._versions) {
-          rsp.setDaemonversion(this._versions.daemon)
-          rsp.setClientversion(this._versions.client)
-          rsp.setSchemaversion(this._versions.schema)
-          rsp.setHyperdriveversion(this._versions.hyperdrive)
-          rsp.setNoisekey(this.noiseKeyPair.publicKey)
+  // RPC Methods
 
-          const swarm = this.networking && this.networking.swarm
-          if (swarm) {
-            const remoteAddress = swarm.remoteAddress()
-            rsp.setHolepunchable(swarm.holepunchable())
-            rsp.setRemoteaddress(remoteAddress ? remoteAddress.host + ':' + remoteAddress.port : '')
-          }
+  async _rpcStatus (call) {
+    const rsp = new rpc.main.messages.StatusResponse()
+    rsp.setApiversion(apiVersion)
+    rsp.setUptime(Date.now() - this._startTime)
+    if (this._versions) {
+      rsp.setDaemonversion(this._versions.daemon)
+      rsp.setClientversion(this._versions.client)
+      rsp.setSchemaversion(this._versions.schema)
+      rsp.setHyperdriveversion(this._versions.hyperdrive)
+      rsp.setNoisekey(this.noiseKeyPair.publicKey)
 
-          if (this._versions.fuseNative) rsp.setFusenativeversion(this._versions.fuseNative)
-          if (this._versions.hyperdriveFuse) rsp.setHyperdrivefuseversion(this._versions.hyperdriveFuse)
+      const swarm = this.networking && this.networking.swarm
+      if (swarm) {
+        const remoteAddress = swarm.remoteAddress()
+        rsp.setHolepunchable(swarm.holepunchable())
+        rsp.setRemoteaddress(remoteAddress ? remoteAddress.host + ':' + remoteAddress.port : '')
+      }
 
-          if (hyperfuse) {
-            rsp.setFuseavailable(true)
-            rsp.setFuseconfigured(this.fuse.fuseConfigured)
-          } else {
-            rsp.setFuseavailable(false)
-            rsp.setFuseconfigured(false)
-          }
-        }
-        return rsp
-      },
-      refreshFuse: async call => {
-        await this.fuse.ready()
-        if (this.fuse && this.fuse.fuseConfigured) {
-          hyperfuse = require('hyperdrive-fuse')
-          this._versions.fuseNative = require('fuse-native/package.json').version
-          this._versions.hyperdriveFuse = require('hyperdrive-fuse/package.json').version
-        }
-        return new rpc.main.messages.FuseRefreshResponse()
+      if (this._versions.fuseNative) rsp.setFusenativeversion(this._versions.fuseNative)
+      if (this._versions.hyperdriveFuse) rsp.setHyperdrivefuseversion(this._versions.hyperdriveFuse)
+
+      if (hyperfuse) {
+        rsp.setFuseavailable(true)
+        rsp.setFuseconfigured(this.fuse.fuseConfigured)
+      } else {
+        rsp.setFuseavailable(false)
+        rsp.setFuseconfigured(false)
       }
     }
+    return rsp
   }
+
+  async _rpcRefreshFuse (call) {
+    await this.fuse.ready()
+    if (this.fuse && this.fuse.fuseConfigured) {
+      hyperfuse = require('hyperdrive-fuse')
+      this._versions.fuseNative = require('fuse-native/package.json').version
+      this._versions.hyperdriveFuse = require('hyperdrive-fuse/package.json').version
+    }
+    return new rpc.main.messages.FuseRefreshResponse()
+  }
+
+  // Public Methods
 
   get uptime () {
     if (!this._startTime) return 0
@@ -370,24 +372,24 @@ class HyperdriveDaemon extends EventEmitter {
     this.server = new grpc.Server()
 
     this.server.addService(rpc.fuse.services.FuseService, {
-      ...wrap(this.metadata, this.fuse.getHandlers(), { authenticate: true })
+      ...wrap(this.metadata, getHandlers(this.fuse), { authenticate: true })
     })
     this.server.addService(rpc.drive.services.DriveService, {
-      ...wrap(this.metadata, this.drives.getHandlers(), { authenticate: true })
+      ...wrap(this.metadata, getHandlers(this.drives), { authenticate: true })
     })
     this.server.addService(rpc.peersockets.services.PeersocketsService, {
-      ...wrap(this.metadata, this.peersockets.getHandlers(), { authenticate: true })
+      ...wrap(this.metadata, getHandlers(this.peersockets), { authenticate: true })
     })
     this.server.addService(rpc.peers.services.PeersService, {
-      ...wrap(this.metadata, this.peers.getHandlers(), { authenticate: true })
+      ...wrap(this.metadata, getHandlers(this.peers), { authenticate: true })
     })
     if (this.debug) {
       this.server.addService(rpc.debug.services.DebugService, {
-        ...wrap(this.metadata, this.debug.getHandlers(), { authenticate: true })
+        ...wrap(this.metadata, getHandlers(this.debug), { authenticate: true })
       })
     }
     this.server.addService(rpc.main.services.HyperdriveService, {
-      ...wrap(this.metadata, this.createMainHandlers(), { authenticate: true })
+      ...wrap(this.metadata, getHandlers(this), { authenticate: true })
     })
 
     await new Promise((resolve, reject) => {
