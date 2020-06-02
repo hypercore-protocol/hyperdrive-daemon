@@ -229,6 +229,7 @@ class HyperdriveDaemon extends EventEmitter {
       var globalFlushed = false
 
       this.networking.swarm.flush(() => {
+        if (this.networking.joined(discoveryKey)) return
         globalFlushed = true
         callAllInSet(flushSet)
         callAllInSet(peerAddSet)
