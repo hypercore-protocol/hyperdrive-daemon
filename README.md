@@ -1,5 +1,5 @@
 # hyperdrive-daemon
-[![Build Status](https://travis-ci.com/andrewosh/hyperdrive-daemon.svg?branch=master)](https://travis-ci.com/andrewosh/hyperdrive-daemon)
+[![Build Status](https://travis-ci.com/hypercore-protocol/hyperdrive-daemon.svg?branch=master)](https://travis-ci.com/github/hypercore-protocol/hyperdrive-daemon)
 
 The Hyperdrive daemon helps you create, share, and manage Hyperdrives through a persistent process running on your computer, without having to deal with storage management or networking configuration.
 
