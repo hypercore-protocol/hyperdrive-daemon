@@ -16,6 +16,8 @@ const { rpc, apiVersion } = require('hyperdrive-daemon-client')
 const { createMetadata } = require('./lib/metadata')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
+const NetworkManager = require('./lib/network')
+const CoreManager = require('./lib/cores')
 const DriveManager = require('./lib/drives')
 const PeersocketManager = require('./lib/peersockets')
 const PeersManager = require('./lib/peers')
@@ -139,8 +141,9 @@ class HyperdriveDaemon extends EventEmitter {
     this.db = this._dbProvider(`${this.storage}/db`, { valueEncoding: 'json' })
     const dbs = {
       fuse: sub(this.db, 'fuse', { valueEncoding: bjson }),
+      cores: sub(this.db, 'cores', { valueEncoding: bjson }),
       drives: sub(this.db, 'drives', { valueEncoding: bjson }),
-      profiles: sub(this.db, 'profiles', { valueEncoding: 'json' })
+      network: sub(this.db, 'network', { valueEncoding: 'json'})
     }
     this._dbs = dbs
 
@@ -174,13 +177,23 @@ class HyperdriveDaemon extends EventEmitter {
     this.peersockets = new PeersocketManager(this.networking, this.peers, peersockets)
     if (!this.noDebug) this.debug = new DebugManager(this)
 
-    this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, {
+    this.network = new NetworkManager(this.networking, dbs.network)
+    await this.network.ready()
+
+    this.drives = new DriveManager(this.corestore, this.network, dbs.drives, {
       ...this.opts,
       memoryOnly: this.memoryOnly,
       watchLimit: this.opts.watchLimit || WATCH_LIMIT
     })
     this.drives.on('error', err => this.emit('error', err))
     await this.drives.ready()
+
+    this.cores = new CoreManager(this.corestore, this.network, dbs.cores, {
+      ...this.opts,
+      memoryOnly: this.memoryOnly
+    })
+    this.cores.on('error', err => this.emit('error', err))
+    await this.cores.ready()
 
     this.fuse = new FuseManager(this.drives, this._dbs.fuse, this.opts)
     this.fuse.on('error', err => this.emit('error', err))
