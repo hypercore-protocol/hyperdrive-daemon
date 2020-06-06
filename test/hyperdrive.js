@@ -204,6 +204,14 @@ test('assorted read parameters to createReadStream', async t => {
       {
         params: { start: 4, end: 10 },
         value: complete.slice(4, 10 + 1)
+      },
+      {
+        params: { end: complete.length - 1 },
+        value: complete
+      },
+      {
+        params: { start: 5, length: 5 },
+        value: complete.slice(5, 10)
       }
     ]
 
@@ -217,8 +225,6 @@ test('assorted read parameters to createReadStream', async t => {
       writeStream.on('error', reject)
       writeStream.on('finish', resolve)
     })
-
-    console.log('wrote blocks')
 
     for (let { params, value } of tests) {
       const readStream = await drive.createReadStream('hello', params)
