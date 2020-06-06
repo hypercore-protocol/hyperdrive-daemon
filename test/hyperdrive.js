@@ -182,6 +182,64 @@ test('can write/read a file from a remote hyperdrive using stream methods', asyn
   t.end()
 })
 
+test('assorted read parameters to createReadStream', async t => {
+  const { client, cleanup } = await createOne()
+
+  try {
+    const drive = await client.drive.get()
+    t.true(drive.key)
+    t.same(drive.id, 1)
+
+    let blocks = ['hello', 'hello', 'world', 'world']
+    let complete = blocks.join('')
+    let tests = [
+      {
+        params: {},
+        value: complete
+      },
+      {
+        params: { end: 10 },
+        value: complete.slice(0, 10 + 1)
+      },
+      {
+        params: { start: 4, end: 10 },
+        value: complete.slice(4, 10 + 1)
+      }
+    ]
+
+    const writeStream = drive.createWriteStream('hello', { uid: 999, gid: 999 })
+    for (let block of blocks) {
+      writeStream.write(block)
+    }
+    writeStream.end()
+
+    await new Promise((resolve, reject) => {
+      writeStream.on('error', reject)
+      writeStream.on('finish', resolve)
+    })
+
+    console.log('wrote blocks')
+
+    for (let { params, value } of tests) {
+      const readStream = await drive.createReadStream('hello', params)
+      const content = await new Promise((resolve, reject) => {
+        collectStream(readStream, (err, bufs) => {
+          if (err) return reject(err)
+          return resolve(Buffer.concat(bufs))
+        })
+      })
+      t.same(content.toString('utf8'), value)
+    }
+
+    await drive.close()
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
 test('reading an invalid file propogates error', async t => {
   const { client, cleanup } = await createOne()
 
