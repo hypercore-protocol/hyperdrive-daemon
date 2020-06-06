@@ -463,10 +463,7 @@ test('can mount a drive within a remote hyperdrive multiple times', async t => {
     await drive2.writeFile('x', 'y')
 
     await drive1.mount('a', { key: drive2.key })
-
-    console.log('before second mount')
     await drive1.mount('b', { key: drive2.key })
-    console.log('after second mount')
 
     t.same(await drive1.readFile('a/x'), Buffer.from('y'))
     t.same(await drive1.readFile('b/x'), Buffer.from('y'))
