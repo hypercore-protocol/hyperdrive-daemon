@@ -6,6 +6,7 @@ const sub = require('subleveldown')
 const grpc = require('@grpc/grpc-js')
 const bjson = require('buffer-json-encoding')
 const processTop = require('process-top')
+const varint = require('varint')
 const Corestore = require('corestore')
 const HypercoreCache = require('hypercore-cache')
 const SwarmNetworker = require('corestore-swarm-networking')
@@ -16,6 +17,7 @@ const { rpc, apiVersion } = require('hyperdrive-daemon-client')
 const { createMetadata } = require('./lib/metadata')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
+const Migrations = require('./lib/migrations')
 const NetworkManager = require('./lib/network')
 const CoreManager = require('./lib/cores')
 const DriveManager = require('./lib/drives')
@@ -96,6 +98,7 @@ class HyperdriveDaemon extends EventEmitter {
     if (opts.latency !== undefined) this._networkOpts.latency = +opts.latency
 
     // Set in ready.
+    this.migrations = null
     this.networking = null
     this.db = null
     this.drives = null
@@ -140,6 +143,7 @@ class HyperdriveDaemon extends EventEmitter {
 
     this.db = this._dbProvider(`${this.storage}/db`, { valueEncoding: 'json' })
     const dbs = {
+      migrations: sub(this.db, 'migrations', { valueEncoding: varint }),
       fuse: sub(this.db, 'fuse', { valueEncoding: bjson }),
       cores: sub(this.db, 'cores', { valueEncoding: bjson }),
       drives: sub(this.db, 'drives', { valueEncoding: bjson }),
@@ -148,6 +152,9 @@ class HyperdriveDaemon extends EventEmitter {
     this._dbs = dbs
 
     await this.corestore.ready()
+
+    this.migrations = new Migrations(dbs)
+    await this.migrations.ensureMigrated()
 
     const seed = this.corestore._deriveSecret(NAMESPACE, 'replication-keypair')
     const swarmId = this.corestore._deriveSecret(NAMESPACE, 'swarm-id')
