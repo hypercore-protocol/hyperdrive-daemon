@@ -175,6 +175,150 @@ test('can cancel an active download', async t => {
   }
 })
 
+test('can mirror a single drive', async t => {
+  const { clients, cleanup } = await create(2)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+
+  try {
+    const drive1 = await firstClient.drive.get()
+    await drive1.configureNetwork({ lookup: true, announce: true })
+
+    const drive2 = await secondClient.drive.get({ key: drive1.key })
+
+    await drive1.writeFile('/a/1', 'hello')
+    await drive1.writeFile('/a/2', 'world')
+    await drive1.writeFile('/a/3', 'three')
+    await drive1.writeFile('/a/4', 'four')
+    await drive1.writeFile('/a/5', 'five')
+
+    // 100 ms delay for replication.
+    await delay(100)
+
+    const d2Stats1 = await drive2.stats()
+    var stats = d2Stats1.stats
+
+    // Since there has not been a content read yet, the stats will not report the latest content length.
+    t.same(stats[0].content.totalBlocks, 0)
+
+    await drive2.mirror()
+
+    // 200 ms delay for download to complete.
+    await delay(200)
+
+    const d2Stats2 = await drive2.stats()
+    stats = d2Stats2.stats
+
+    const fileStats = await drive2.fileStats('a')
+    t.same(stats[0].content.totalBlocks, 5)
+    t.same(stats[0].content.downloadedBlocks, 5)
+    t.same(fileStats.get('/a/1').downloadedBlocks, 1)
+    t.same(fileStats.get('/a/2').downloadedBlocks, 1)
+    t.same(fileStats.get('/a/3').downloadedBlocks, 1)
+    t.same(fileStats.get('/a/4').downloadedBlocks, 1)
+    t.same(fileStats.get('/a/5').downloadedBlocks, 1)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test('can mirror a drive with mounts', async t => {
+  const { clients, cleanup } = await create(2)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+
+  try {
+    const drive1 = await firstClient.drive.get()
+    const mount = await firstClient.drive.get()
+    await drive1.configureNetwork({ lookup: true, announce: true })
+
+    const drive2 = await secondClient.drive.get({ key: drive1.key })
+
+    await drive1.mount('/a', { key: mount.key })
+    await mount.writeFile('2', 'world')
+    await mount.writeFile('3', 'three')
+    await mount.writeFile('4', 'four')
+    await mount.writeFile('5', 'five')
+
+    // 100 ms delay for replication.
+    await delay(100)
+
+    const d2Stats1 = await drive2.stats()
+    var stats = d2Stats1.stats
+
+    await drive2.mirror()
+
+    // 200 ms delay for download to complete.
+    await delay(200)
+
+    const d2Stats2 = await drive2.stats()
+    stats = d2Stats2.stats
+
+    const fileStats = await drive2.fileStats('a')
+    t.same(stats[1].content.totalBlocks, 4)
+    t.same(stats[1].content.downloadedBlocks, 4)
+    t.same(fileStats.get('/a/2').downloadedBlocks, 1)
+    t.same(fileStats.get('/a/3').downloadedBlocks, 1)
+    t.same(fileStats.get('/a/4').downloadedBlocks, 1)
+    t.same(fileStats.get('/a/5').downloadedBlocks, 1)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+})
+
+test('can cancel an active mirror', async t => {
+  const { clients, cleanup } = await create(2)
+  const firstClient = clients[0]
+  const secondClient = clients[1]
+
+  try {
+    const drive1 = await firstClient.drive.get()
+    await drive1.configureNetwork({ lookup: true, announce: true })
+
+    const drive2 = await secondClient.drive.get({ key: drive1.key })
+
+    await writeFile(drive1, '/a/1', 50)
+    await writeFile(drive1, '/a/2', 50)
+
+    const unmirror = await drive2.mirror()
+    await delay(100)
+    await unmirror()
+
+    // Wait to make sure that the download is not continuing.
+    await delay(100)
+
+    const { stats: totals } = await drive2.stats()
+    const fileStats = await drive2.fileStats('a')
+    const contentTotals = totals[0].content
+    t.true(contentTotals.downloadedBlocks < 100 && contentTotals.downloadedBlocks > 0)
+    t.true(fileStats.get('/a/1').downloadedBlocks < 50 && fileStats.get('/a/1').downloadedBlocks > 0)
+    t.true(fileStats.get('/a/2').downloadedBlocks < 50 && fileStats.get('/a/2').downloadedBlocks > 0)
+  } catch (err) {
+    t.fail(err)
+  }
+
+  await cleanup()
+  t.end()
+
+  async function writeFile (drive, name, numBlocks) {
+    const writeStream = drive.createWriteStream(name)
+    return new Promise((resolve, reject) => {
+      writeStream.on('finish', resolve)
+      writeStream.on('error', reject)
+      for (let i = 0; i < numBlocks; i++) {
+        writeStream.write(Buffer.alloc(1024 * 1024).fill('abcdefg'))
+      }
+      writeStream.end()
+    })
+  }
+})
+
 test('can replicate many mounted drives between daemons', async t => {
   const { clients, cleanup } = await create(2)
   console.time('many-mounts')
