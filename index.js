@@ -17,8 +17,6 @@ const { rpc, apiVersion } = require('hyperdrive-daemon-client')
 const { createMetadata } = require('./lib/metadata')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
-const Migrations = require('./lib/migrations')
-const NetworkManager = require('./lib/network')
 const DriveManager = require('./lib/drives')
 const PeersocketManager = require('./lib/peersockets')
 const PeersManager = require('./lib/peers')
@@ -97,7 +95,6 @@ class HyperdriveDaemon extends EventEmitter {
     if (opts.latency !== undefined) this._networkOpts.latency = +opts.latency
 
     // Set in ready.
-    this.migrations = null
     this.networking = null
     this.db = null
     this.drives = null
@@ -142,7 +139,6 @@ class HyperdriveDaemon extends EventEmitter {
 
     this.db = this._dbProvider(`${this.storage}/db`, { valueEncoding: 'json' })
     const dbs = {
-      migrations: sub(this.db, 'migrations', { valueEncoding: varint }),
       fuse: sub(this.db, 'fuse', { valueEncoding: bjson }),
       drives: sub(this.db, 'drives', { valueEncoding: bjson }),
       network: sub(this.db, 'network', { valueEncoding: 'json'})
@@ -150,9 +146,6 @@ class HyperdriveDaemon extends EventEmitter {
     this._dbs = dbs
 
     await this.corestore.ready()
-
-    this.migrations = new Migrations(dbs)
-    await this.migrations.ensureMigrated()
 
     const seed = this.corestore._deriveSecret(NAMESPACE, 'replication-keypair')
     const swarmId = this.corestore._deriveSecret(NAMESPACE, 'swarm-id')
@@ -182,10 +175,7 @@ class HyperdriveDaemon extends EventEmitter {
     this.peersockets = new PeersocketManager(this.networking, this.peers, peersockets)
     if (!this.noDebug) this.debug = new DebugManager(this)
 
-    this.network = new NetworkManager(this.networking, dbs.network)
-    await this.network.ready()
-
-    this.drives = new DriveManager(this.corestore, this.network, dbs.drives, {
+    this.drives = new DriveManager(this.corestore, this.networking, dbs.drives, {
       ...this.opts,
       memoryOnly: this.memoryOnly,
       watchLimit: this.opts.watchLimit || WATCH_LIMIT
