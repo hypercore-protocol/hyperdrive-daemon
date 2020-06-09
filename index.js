@@ -19,7 +19,6 @@ const constants = require('hyperdrive-daemon-client/lib/constants')
 
 const Migrations = require('./lib/migrations')
 const NetworkManager = require('./lib/network')
-const CoreManager = require('./lib/cores')
 const DriveManager = require('./lib/drives')
 const PeersocketManager = require('./lib/peersockets')
 const PeersManager = require('./lib/peers')
@@ -145,7 +144,6 @@ class HyperdriveDaemon extends EventEmitter {
     const dbs = {
       migrations: sub(this.db, 'migrations', { valueEncoding: varint }),
       fuse: sub(this.db, 'fuse', { valueEncoding: bjson }),
-      cores: sub(this.db, 'cores', { valueEncoding: bjson }),
       drives: sub(this.db, 'drives', { valueEncoding: bjson }),
       network: sub(this.db, 'network', { valueEncoding: 'json'})
     }
@@ -194,13 +192,6 @@ class HyperdriveDaemon extends EventEmitter {
     })
     this.drives.on('error', err => this.emit('error', err))
     await this.drives.ready()
-
-    this.cores = new CoreManager(this.corestore, this.network, dbs.cores, {
-      ...this.opts,
-      memoryOnly: this.memoryOnly
-    })
-    this.cores.on('error', err => this.emit('error', err))
-    await this.cores.ready()
 
     this.fuse = new FuseManager(this.drives, this._dbs.fuse, this.opts)
     this.fuse.on('error', err => this.emit('error', err))
