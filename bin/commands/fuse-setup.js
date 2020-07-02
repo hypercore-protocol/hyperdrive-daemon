@@ -8,6 +8,8 @@ const { Command, flags } = require('@oclif/command')
 const { HyperdriveClient } = require('hyperdrive-daemon-client')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 
+const isPosix = process.platform !== 'win32'
+
 class SetupCommand extends Command {
   static usage = 'fuse-setup'
   static description = 'Perform a one-time configuration step for FUSE.'
@@ -15,12 +17,12 @@ class SetupCommand extends Command {
     user: flags.integer({
       description: `User that should own the ${constants.mountpoint} directory`,
       char: 'U',
-      default: process.geteuid()
+      default: isPosix && process.geteuid()
     }),
     group: flags.integer({
       description: `Group that should own the ${constants.mountpoint} directory`,
       char: 'G',
-      default: process.getegid()
+      default: isPosix && process.getegid()
     }),
     force: flags.boolean({
       description: 'Force the setup to execute, even if it\'s already been performed once.',
