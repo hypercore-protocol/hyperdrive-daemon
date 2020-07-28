@@ -147,8 +147,10 @@ class HyperdriveDaemon extends EventEmitter {
 
     await this.corestore.ready()
 
-    const seed = this.corestore._deriveSecret(NAMESPACE, 'replication-keypair')
-    const swarmId = this.corestore._deriveSecret(NAMESPACE, 'swarm-id')
+    // Note: This API is not exposed anymore -- this is a temporary fix.
+    const seed = this.corestore.inner._deriveSecret(NAMESPACE, 'replication-keypair')
+    const swarmId = this.corestore.inner._deriveSecret(NAMESPACE, 'swarm-id')
+
     this._networkOpts.keyPair = HypercoreProtocol.keyPair(seed)
     this._networkOpts.id = swarmId
 
