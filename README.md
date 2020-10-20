@@ -128,7 +128,7 @@ Delete all read-only drives from disk. This will clear up storage, and makes it 
 This command *must not* be run while the daemon is running. Since it deletes data, it's intentionally verbose!
 
 ## FUSE
-Using FUSE, the Hyperdrive daemon lets your mount Hyperdrives as normal filesystem directories on both OSX and Linux. To use FUSE, you need to run the `setup` command before you start the daemon the first time:
+Using FUSE, the Hyperdrive daemon lets your mount Hyperdrives as normal filesystem directories on both OSX and Linux. To use FUSE, you need to run the `fuse-setup` command before you start the daemon the first time:
 
 ### Setup
 The setup command installs native, prebuilt FUSE bindings. We currently only provide bindings for OSX and Linux. The setup step is the only part of installation that requires `sudo` access:
@@ -235,7 +235,7 @@ Since looking at `networking.json` is a common operation, we provide a shorthand
 The `~/Hyperdrive/Network/Active` directory contains symlinks to the `networking.json` stats files for every drive that your daemon is currently announcing. `ls`ing this directory gives you a quick overview of exactly what you're announcing.
 
 ### FUSE Commands
-*Note: Always be sure to run `hyperdrive setup` and check the FUSE status before doing any additional FUSE-related commands!*
+*Note: Always be sure to run `hyperdrive fuse-setup` and check the FUSE status before doing any additional FUSE-related commands!*
 
 #### `hyperdrive create <path>`
 Create a new drive mounted at `path`.
