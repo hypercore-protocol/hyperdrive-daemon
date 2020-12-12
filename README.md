@@ -2,7 +2,11 @@
 [![Build Status](https://travis-ci.com/hypercore-protocol/hyperdrive-daemon.svg?branch=master)](https://travis-ci.com/github/hypercore-protocol/hyperdrive-daemon)
 
 ## ⚠️ Deprecation Notice ⚠️
-With the recent release of [Hyperspace](https://github.com/hypercore-protocol/hyperspace), this module won't be supported moving forward. All the same functionality is still available in the [Hyperdrive service](https://github.com/hyperspace-org/hyperdrive-service), though -- our [Hyperspace blog post](https://blog.hypercore-protocol.org/posts/hyperspace/) and the Hyperdrive service's README explain how to transition.
+With the recent release of [Hyperspace](https://github.com/hypercore-protocol/hyperspace), this module won't be supported moving forward. 
+
+All the existing functionality is still available in the [Hyperdrive service](https://github.com/hyperspace-org/hyperdrive-service), though -- our [Hyperspace blog post](https://blog.hypercore-protocol.org/posts/hyperspace/) and the Hyperdrive service's README explain how to transition.
+
+---
 
 The Hyperdrive daemon helps you create, share, and manage Hyperdrives through a persistent process running on your computer, without having to deal with storage management or networking configuration.
 
